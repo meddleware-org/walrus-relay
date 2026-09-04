@@ -1,0 +1,67 @@
+name: Integration (localnet)
+
+# Opt-in localnet e2e for the relay library — probes the real upload-relay and drives the access-gate
+# ownership check against the localnet access_gate. Kept off the PR path. The localnet substrate lives
+# in the walrus-client repo (single source of truth), cloned here at a pinned ref.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * *' # nightly, staggered after walrus-client
+
+jobs:
+  localnet:
+    name: walrus-relay localnet suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout walrus-relay (into repos/walrus-relay)
+        uses: actions/checkout@v5
+        with:
+          path: repos/walrus-relay
+
+      - name: Checkout walrus-client (provides localnet/ harness)
+        uses: actions/checkout@v5
+        with:
+          repository: meddleware-org/walrus-client
+          ref: ${{ vars.WALRUS_CLIENT_REF || 'main' }}
+          path: repos/walrus-client
+
+      - name: Checkout access-gate-sui (sibling, for the localnet gate deploy)
+        uses: actions/checkout@v5
+        with:
+          repository: meddleware-org/access-gate-sui
+          ref: ${{ vars.ACCESS_GATE_REF || 'main' }}
+          path: repos/access-gate-sui
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install sui CLI (suiup)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/suiup" install sui@testnet --yes || "$HOME/.local/bin/suiup" install sui@testnet
+          sui client new-env --alias localnet --rpc http://127.0.0.1:9000 || true
+          sui client switch --env localnet || true
+
+      - name: Bring up + bootstrap the localnet testbed
+        working-directory: repos/walrus-client/localnet
+        run: |
+          bash scripts/up.sh
+          bash scripts/bootstrap-localnet.sh
+
+      - name: Install deps
+        working-directory: repos/walrus-relay
+        run: npm install
+
+      - name: Run localnet integration suite
+        working-directory: repos/walrus-relay
+        run: |
+          set -a && source ../walrus-client/localnet/.env.localnet && set +a
+          npm run test:integration
+
+      - name: Tear down
+        if: always()
+        working-directory: repos/walrus-client/localnet
+        run: bash scripts/down.sh || true
