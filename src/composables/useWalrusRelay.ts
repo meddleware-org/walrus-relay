@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { parseTipFromConfig } from '../lib/relay.js'
 
@@ -80,29 +80,35 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
     }
   }
 
-  // The operator relay is offered only when reachable AND (no gate, or the connected
-  // wallet holds the access NFT). Without access we hide the option but still expose the
-  // purchase CTA below — the public relay always remains as a fallback.
+  // Relay-selection policy (anti-bypass):
+  //   • operator configured & reachable & access satisfied ⇒ operator relay ONLY (NFT + tip).
+  //   • operator configured & reachable & NO access        ⇒ NO options — drive the purchase CTA;
+  //     the free public relay is deliberately withheld so users can't dodge the paywall while the
+  //     service is up.
+  //   • operator not configured OR unreachable             ⇒ public relay as a genuine fallback.
   const availableRelays = computed((): RelayOption[] => {
-    const relays: RelayOption[] = []
+    const operatorUp = isOperatorRelayConfigured && operatorRelayAccessible.value === true
 
-    if (isOperatorRelayConfigured && operatorRelayAccessible.value && accessSatisfied.value) {
-      relays.push({
-        label: 'Operator relay (supports this app)',
-        host: operatorRelayHost,
-        tip: operatorRelayTip.value,
-        isPublic: false,
-      })
+    if (operatorUp) {
+      if (!accessSatisfied.value) return []
+      return [
+        {
+          label: 'Operator relay (supports this app)',
+          host: operatorRelayHost,
+          tip: operatorRelayTip.value,
+          isPublic: false,
+        },
+      ]
     }
 
-    relays.push({
-      label: 'Public relay (free, no tip)',
-      host: publicRelayHost,
-      tip: null,
-      isPublic: true,
-    })
-
-    return relays
+    return [
+      {
+        label: 'Public relay (free, no tip)',
+        host: publicRelayHost,
+        tip: null,
+        isPublic: true,
+      },
+    ]
   })
 
   // Show a "purchase access" CTA when the operator relay is live but the connected
@@ -115,13 +121,17 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
       access.hasAccess?.value === false,
   )
 
-  // If operator relay is not accessible, force the selection to the public relay.
+  // Keep the selected host pointing at a currently-available relay. When the set changes (health
+  // check resolves, access is granted/revoked) snap to the first available option. When none are
+  // available (gated + unpaid) leave the selection as-is — upload is blocked by the caller.
   const ensureValidSelection = () => {
     const available = availableRelays.value.map((r) => r.host)
+    if (available.length === 0) return
     if (!available.includes(selectedRelayHost.value)) {
-      selectedRelayHost.value = publicRelayHost
+      selectedRelayHost.value = available[0]
     }
   }
+  watch(availableRelays, ensureValidSelection, { immediate: true })
 
   // Estimate the cost for the selected relay, based on file size.
   const estimatedCost = computed((): { mist: bigint; sui: string; label: string } | null => {
