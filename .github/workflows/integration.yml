@@ -42,14 +42,17 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/suiup" install sui@testnet --yes || "$HOME/.local/bin/suiup" install sui@testnet
-          # GITHUB_PATH update only applies to subsequent steps, so use the full path here.
-          "$HOME/.local/bin/sui" client new-env --alias localnet --rpc http://127.0.0.1:9000 || true
-          "$HOME/.local/bin/sui" client switch --env localnet || true
+          # Initialise the default client config now (first-run prompts for keypair creation).
+          # Cannot register the localnet env yet — the node starts in the next step.
+          "$HOME/.local/bin/sui" client envs || true
 
       - name: Bring up + bootstrap the localnet testbed
         working-directory: repos/walrus-client/localnet
         run: |
           bash scripts/up.sh
+          # The Sui localnet node is now reachable. Register and activate the env.
+          "$HOME/.local/bin/sui" client new-env --alias localnet --rpc http://127.0.0.1:9000
+          "$HOME/.local/bin/sui" client switch --env localnet
           bash scripts/bootstrap-localnet.sh
 
       - name: Install deps
