@@ -43,9 +43,10 @@ function priceLabel(): string {
 .wru-cta {
   margin: 0.75rem 0;
   padding: 0.75rem;
-  border: 1px solid var(--mw-color-border, #ddd);
+  border: 1px solid var(--border, #ded6cf);
   border-radius: 8px;
-  background: var(--mw-color-surface-muted, #fafafa);
+  background: var(--lift, #efeae6);
+  color: var(--text, inherit);
 }
 .wru-cta p {
   margin: 0 0 0.5rem;

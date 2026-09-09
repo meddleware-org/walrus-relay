@@ -88,7 +88,13 @@ export function useAccessGate(deps: {
     const tx = buildPurchaseTx(gate, gate.priceMist)
     const res = await executor.signAndExecute(tx)
     if (res.digest) await executor.waitForTransaction(res.digest).catch(() => {})
-    await checkOwnership(address)
+    // Sui's owned-object index can lag behind transaction finality by several seconds.
+    // Retry until the NFT appears or the retries are exhausted.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await checkOwnership(address)
+      if (hasAccess.value === true) return
+      if (attempt < 4) await new Promise<void>((r) => setTimeout(r, 1500))
+    }
   }
 
   /** Build the consume PTB for a single-use NFT (woven into the upload flow before proving). */
