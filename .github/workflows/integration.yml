@@ -15,25 +15,25 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout walrus-relay (into repos/walrus-relay)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7.0.1
         with:
           path: repos/walrus-relay
 
       - name: Checkout walrus-client (provides localnet/ harness)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7.0.1
         with:
           repository: meddleware-org/walrus-client
           ref: ${{ vars.WALRUS_CLIENT_REF || 'main' }}
           path: repos/walrus-client
 
       - name: Checkout access-gate-sui (sibling, for the localnet gate deploy)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7.0.1
         with:
           repository: meddleware-org/access-gate-sui
           ref: ${{ vars.ACCESS_GATE_REF || 'main' }}
           path: repos/access-gate-sui
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
 
