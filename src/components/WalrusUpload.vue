@@ -172,8 +172,8 @@ async function upload(): Promise<void> {
     </p>
 
     <p id="wru-help" class="wru-hint">
-      Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + a small relay fee) in
-      your wallet; two wallet approvals.
+      Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
+      wallet; three wallet approvals (relay access, blob registration, blob certification).
     </p>
     <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
 

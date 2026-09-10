@@ -123,6 +123,54 @@ export function useAccessGate(deps: {
     })
   }
 
+  /**
+   * Full single-use flow: fetch a gateway challenge, execute the on-chain
+   * `access_gate::consume` transaction to record the use, then build and return a
+   * signed access-proof token with the `consumeDigest`. Required when the gateway
+   * operates in SINGLE_USE=true mode — the proof is rejected without a valid
+   * on-chain consume event matching the nonce.
+   *
+   * This triggers one wallet approval (the consume tx). In the Walrus upload flow
+   * the caller should invoke this BEFORE `runBlobUpload`, so the token is ready
+   * before the relay upload step.
+   */
+  async function consumeAndBuildToken(opts: {
+    relayHost: string
+    executor: GateExecutor
+    address: string
+    sign: PersonalMessageSigner
+  }): Promise<string> {
+    if (!gate) throw new Error('No access gate configured for this network.')
+    const currentNftId = nftId.value
+    if (!currentNftId) throw new Error('No access NFT held — purchase one first.')
+
+    // 1. Get a fresh challenge nonce from the gateway.
+    const challenge = await fetchChallenge(opts.relayHost)
+
+    // 2. Execute the on-chain consume transaction to record use of this nonce.
+    const consumeTx = buildConsumeTx(gate, currentNftId, challenge.nonce)
+    const res = await opts.executor.signAndExecute(consumeTx as Transaction)
+    if (res.digest) await opts.executor.waitForTransaction(res.digest).catch(() => {})
+
+    // 3. Optimistically update local uses so the UI reflects the spent use immediately
+    //    without waiting for a full checkOwnership round-trip.
+    if (usesRemaining.value !== null) {
+      usesRemaining.value = usesRemaining.value - 1
+      if (usesRemaining.value <= 0) {
+        hasAccess.value = false
+        nftId.value = null
+      }
+    }
+
+    // 4. Build and return the signed proof that includes the consume tx digest.
+    return buildAccessProof({
+      address: opts.address,
+      challenge,
+      sign: opts.sign,
+      consumeDigest: res.digest,
+    })
+  }
+
   return {
     gate,
     gateConfigured,
@@ -137,5 +185,6 @@ export function useAccessGate(deps: {
     purchase,
     buildConsume,
     buildRelayAccessToken,
+    consumeAndBuildToken,
   }
 }
