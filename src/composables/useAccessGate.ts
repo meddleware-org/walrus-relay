@@ -68,9 +68,19 @@ export function useAccessGate(deps: {
     error.value = null
     try {
       const nfts = await fetchAccessNfts(deps.getClient(), address, gate.nftType, gate.gateId)
-      hasAccess.value = nfts.length > 0
-      usesRemaining.value = nfts.length ? nfts[0].usesRemaining : null
-      nftId.value = nfts.length ? nfts[0].objectId : null
+      // Filter out exhausted NFTs (usesRemaining = 0). Unlimited passes have usesRemaining = null.
+      // Sort ascending so the most-depleted NFT is consumed first (minimises stranded partial uses).
+      // Unlimited passes sort last (treated as Infinity).
+      const valid = nfts
+        .filter((n) => n.usesRemaining === null || n.usesRemaining > 0)
+        .sort((a, b) => {
+          const ua = a.usesRemaining ?? Infinity
+          const ub = b.usesRemaining ?? Infinity
+          return ua - ub
+        })
+      hasAccess.value = valid.length > 0
+      usesRemaining.value = valid.length ? valid[0].usesRemaining : null
+      nftId.value = valid.length ? valid[0].objectId : null
     } catch (e) {
       // A failed check must NOT hard-block the user: leave access false but keep the
       // purchase path available (the gateway re-verifies server-side regardless).

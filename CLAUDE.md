@@ -74,6 +74,21 @@ token-deployer app's non-reactive utils).
 
 `packageId` and `platformConfigId` are hardcoded — operators configure everything else.
 
+## Deferred: NFT picker for multi-NFT wallets
+
+`useAccessGate` currently auto-selects the NFT with the fewest uses remaining (most-depleted
+first). This is the right default when users hold at most one valid NFT per gate.
+
+When multi-NFT wallets become common (e.g. users bulk-buying upload capacity), a picker UI
+should be added so the user can see all held NFTs for the current gate (objectId, usesRemaining)
+and explicitly select which one to consume. The composable already surfaces `nftId` reactively;
+extending it to `nftIds: Ref<string[]>` and wiring a selection UI in `WalrusView.vue` is the
+implementation path. Until then, auto-selection is intentional.
+
+Separately: preventing a user from holding more than one NFT per gate should be enforced
+on-chain (a `max_per_address` field on the `Gate` struct) rather than in this UI layer, since
+the gateway verifies the consume event, not the purchase count.
+
 ## What NOT to do
 
 - Do not add a `configurePackageId()` function or any API that lets operators override
