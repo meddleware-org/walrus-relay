@@ -14,6 +14,7 @@ import {
   type UploadProgress,
   type UploadStepKey,
 } from '../lib/upload-steps.js'
+import { getCertifyRetry } from '../lib/certify-retry.js'
 
 export interface UploadResult {
   blobId: string
@@ -66,6 +67,12 @@ const status = ref('')
 const error = ref<string | null>(null)
 const fileName = ref('')
 let bytes: Uint8Array | null = null
+
+// When an upload lands but certify fails, the app attaches a retry closure to the error. We hold it
+// so the user can certify the already-stored (already-paid) blob with one more approval — no
+// re-upload. `certifying` tracks the retry in flight.
+const pendingCertify = ref<(() => Promise<UploadResult>) | null>(null)
+const certifying = ref(false)
 
 // Stepped-progress state. `activeStep` is set only when the app reports structured progress; if it
 // stays null (a legacy string-only caller), the modal falls back to the single status line.
@@ -124,6 +131,7 @@ const noRelayAvailable = computed(() => availableRelays.value.length === 0)
 
 function onFile(e: Event): void {
   error.value = null
+  pendingCertify.value = null
   bytes = null
   fileName.value = ''
   const f = (e.target as HTMLInputElement).files?.[0]
@@ -150,6 +158,7 @@ async function upload(): Promise<void> {
   error.value = null
   activeStep.value = null
   sawAccessStep.value = false
+  pendingCertify.value = null
   try {
     const result = await props.performUpload(bytes, {
       relayHost: selectedRelayHost.value,
@@ -157,13 +166,43 @@ async function upload(): Promise<void> {
     })
     emit('uploaded', result)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    // If the upload landed but only certify failed, offer a retry instead of a hard error — the
+    // blob is already stored and paid for; certifying it later costs only the certify gas.
+    const retry = getCertifyRetry<UploadResult>(e)
+    if (retry) {
+      pendingCertify.value = retry
+    } else {
+      error.value = e instanceof Error ? e.message : String(e)
+    }
   } finally {
     // The transient step text only lives in the modal; the persistent "Uploaded ✓" is the
     // host's result section. Clear it as the modal closes so it never lingers.
     status.value = ''
     activeStep.value = null
     uploading.value = false
+    emit('settled')
+  }
+}
+
+/**
+ * Retry certification of an already-uploaded blob (after a failed certify). Runs the app's retry
+ * closure, which re-submits the certify transaction from the certificate the upload already
+ * obtained — no re-upload, no relay, no extra fee beyond gas.
+ */
+async function runPendingCertify(): Promise<void> {
+  const retry = pendingCertify.value
+  if (!retry || certifying.value) return
+  certifying.value = true
+  error.value = null
+  try {
+    const result = await retry()
+    pendingCertify.value = null
+    emit('uploaded', result)
+  } catch (e) {
+    // Keep the pending state so the user can try again (e.g. they rejected the prompt once more).
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    certifying.value = false
     emit('settled')
   }
 }
@@ -215,6 +254,19 @@ async function upload(): Promise<void> {
       Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
       wallet; three wallet approvals (relay access, blob registration, blob certification).
     </p>
+    <!-- Upload landed but certification didn't (e.g. the wallet prompt was declined). The blob is
+         already stored and paid for; offer a one-click certify rather than forcing a full re-upload. -->
+    <div v-if="pendingCertify" class="wru-certify" role="status">
+      <p class="wru-certify__msg">
+        Your blob was uploaded and paid for but not yet <strong>certified</strong> — certify it to
+        finish (one wallet approval, gas only; no re-upload).
+      </p>
+      <button type="button" :disabled="certifying" @click="runPendingCertify">
+        <span v-if="certifying" class="wru-spinner" aria-hidden="true"></span>
+        {{ certifying ? 'Certifying…' : 'Certify blob' }}
+      </button>
+    </div>
+
     <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
 
     <Teleport to="body">
@@ -289,6 +341,17 @@ async function upload(): Promise<void> {
 .wru-error {
   margin: 0.5rem 0;
   color: var(--mw-color-danger, #b00020);
+}
+.wru-certify {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: var(--mw-radius, 8px);
+  background: color-mix(in srgb, var(--accent, #6366f1) 8%, transparent);
+}
+.wru-certify__msg {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
 }
 .wru-gated {
   margin: 0.5rem 0;

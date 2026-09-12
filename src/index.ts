@@ -48,3 +48,6 @@ export {
   isUploadProgress,
 } from './lib/upload-steps.js'
 export type { UploadStepKey, UploadStepDef, UploadProgress } from './lib/upload-steps.js'
+
+export { attachCertifyRetry, getCertifyRetry } from './lib/certify-retry.js'
+export type { CertifyRetryable } from './lib/certify-retry.js'
