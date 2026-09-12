@@ -41,3 +41,10 @@ export {
   ACCESS_GATE_PLATFORM_CONFIG_ID,
   accessGateNftType,
 } from './constants.js'
+
+export {
+  CORE_UPLOAD_STEPS,
+  GATED_UPLOAD_STEPS,
+  isUploadProgress,
+} from './lib/upload-steps.js'
+export type { UploadStepKey, UploadStepDef, UploadProgress } from './lib/upload-steps.js'
