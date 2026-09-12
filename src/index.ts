@@ -51,3 +51,6 @@ export type { UploadStepKey, UploadStepDef, UploadProgress } from './lib/upload-
 
 export { attachCertifyRetry, getCertifyRetry } from './lib/certify-retry.js'
 export type { CertifyRetryable } from './lib/certify-retry.js'
+
+export { attachDuplicateExisting, getDuplicateExisting } from './lib/duplicate-existing.js'
+export type { ExistingCopy, DuplicateExistingError } from './lib/duplicate-existing.js'

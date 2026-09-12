@@ -15,6 +15,8 @@ import {
   type UploadStepKey,
 } from '../lib/upload-steps.js'
 import { getCertifyRetry } from '../lib/certify-retry.js'
+import { getDuplicateExisting, type ExistingCopy } from '../lib/duplicate-existing.js'
+import { MAX_SINGLE_RESERVATION_EPOCHS } from '../lib/relay.js'
 
 export interface UploadResult {
   blobId: string
@@ -37,17 +39,29 @@ const props = withDefaults(
     /** Optional UX-only size guard in bytes (the authoritative cap is the relay edge). */
     maxBytes?: number
     /**
-     * App-provided upload. Receives the chosen bytes + the selected relay host and a
-     * status callback; performs encode → register → upload → certify → getBlob using
-     * the app's Walrus client + wallet, and resolves the blob result.
+     * App-provided upload. Receives the chosen bytes + upload options (selected relay host, chosen
+     * storage duration in `epochs`, a `force` flag to bypass the duplicate precheck) and a status
+     * callback; performs encode → register → upload → certify → getBlob using the app's Walrus
+     * client + wallet, and resolves the blob result.
      *
      * `onStatus` accepts either a plain string (legacy — shown as a single status line) or an
      * `UploadProgress` (`{ step, detail }`), which drives the stepped progress indicator.
      */
     performUpload: (
       bytes: Uint8Array,
-      opts: { relayHost: string; onStatus: (s: string | UploadProgress) => void },
+      opts: {
+        relayHost: string
+        epochs: number
+        force?: boolean
+        onStatus: (s: string | UploadProgress) => void
+      },
     ) => Promise<UploadResult>
+    /**
+     * Estimate the on-chain storage cost (in WAL FROST, i.e. ×1e-9 WAL) of storing `sizeBytes` for
+     * `epochs`. Injected by the app (it owns the Walrus client); when provided, the cost line shows a
+     * storage figure alongside the relay fee. Returns `null` on a transient failure.
+     */
+    estimateStorageCost?: (sizeBytes: number, epochs: number) => Promise<bigint | null>
   }>(),
   { accept: '*/*', access: () => ({}) },
 )
@@ -57,7 +71,13 @@ const emit = defineEmits<{
   /** Fires once per upload attempt after it resolves — success OR failure. Lets the host
    *  refresh on-chain-derived views (owned blobs) since a failed UI run may still have landed. */
   (e: 'settled'): void
+  /** The user chose to manage an existing copy (Extend a certified one / Certify a pending one)
+   *  instead of uploading a duplicate. The host routes to its blob-management view. */
+  (e: 'manage-existing', existing: ExistingCopy): void
 }>()
+
+/** Upper bound on a single reservation (Walrus `max_epochs_ahead`). */
+const maxUploadEpochs = MAX_SINGLE_RESERVATION_EPOCHS
 
 const { selectedRelayHost, availableRelays, estimatedCost, fileSizeBytes, checkOperatorRelayHealth } =
   useWalrusRelay(props.hosts, props.access)
@@ -67,6 +87,53 @@ const status = ref('')
 const error = ref<string | null>(null)
 const fileName = ref('')
 let bytes: Uint8Array | null = null
+
+// Chosen storage reservation length (epochs). Defaults to the single-reservation max; clamped to
+// [1, maxUploadEpochs]. Longer lifetimes are reached later via Extend (max_epochs_ahead caps a tx).
+const uploadEpochs = ref(maxUploadEpochs)
+watch(uploadEpochs, (v) => {
+  const clamped = Math.min(maxUploadEpochs, Math.max(1, Math.floor(Number(v) || 1)))
+  if (clamped !== v) uploadEpochs.value = clamped
+})
+
+// Estimated on-chain storage cost (WAL FROST) for the current file + duration; null while unknown.
+const storageCostFrost = ref<bigint | null>(null)
+let storageReqId = 0
+async function refreshStorageCost(): Promise<void> {
+  const size = fileSizeBytes.value
+  const epochs = uploadEpochs.value
+  if (!size || !epochs || !props.estimateStorageCost) {
+    storageCostFrost.value = null
+    return
+  }
+  const id = ++storageReqId
+  try {
+    const frost = await props.estimateStorageCost(size, epochs)
+    if (id === storageReqId) storageCostFrost.value = frost
+  } catch {
+    if (id === storageReqId) storageCostFrost.value = null
+  }
+}
+watch([fileSizeBytes, uploadEpochs], () => void refreshStorageCost(), { immediate: true })
+
+/** MIST/FROST (1e-9) → a short decimal string. */
+function to9dp(v: bigint): string {
+  return (Number(v) / 1e9).toFixed(4)
+}
+
+/** Combined cost line: storage in WAL (scales with epochs) + relay fee in SUI (separate tokens). */
+const costLine = computed<string | null>(() => {
+  const relay = estimatedCost.value
+  const storage = storageCostFrost.value
+  const parts: string[] = []
+  if (storage !== null) parts.push(`~${to9dp(storage)} WAL storage (${uploadEpochs.value} epochs)`)
+  if (relay) parts.push(`~${to9dp(relay.mist)} SUI relay fee`)
+  return parts.length ? `Estimated cost: ${parts.join(' + ')} (+ gas)` : null
+})
+
+// An existing owned copy of the file the user is trying to upload (from the app's precheck). When
+// set, a choice dialog offers Extend/Certify instead of creating a wasteful duplicate.
+const duplicate = ref<ExistingCopy | null>(null)
 
 // When an upload lands but certify fails, the app attaches a retry closure to the error. We hold it
 // so the user can certify the already-stored (already-paid) blob with one more approval — no
@@ -132,6 +199,7 @@ const noRelayAvailable = computed(() => availableRelays.value.length === 0)
 function onFile(e: Event): void {
   error.value = null
   pendingCertify.value = null
+  duplicate.value = null
   bytes = null
   fileName.value = ''
   const f = (e.target as HTMLInputElement).files?.[0]
@@ -149,7 +217,7 @@ function onFile(e: Event): void {
   reader.readAsArrayBuffer(f)
 }
 
-async function upload(): Promise<void> {
+async function upload(force = false): Promise<void> {
   if (!bytes) {
     error.value = 'Choose a file first.'
     return
@@ -159,13 +227,23 @@ async function upload(): Promise<void> {
   activeStep.value = null
   sawAccessStep.value = false
   pendingCertify.value = null
+  duplicate.value = null
   try {
     const result = await props.performUpload(bytes, {
       relayHost: selectedRelayHost.value,
+      epochs: uploadEpochs.value,
+      force,
       onStatus: onProgress,
     })
     emit('uploaded', result)
   } catch (e) {
+    // The app aborted before registering because the wallet already owns this blob: offer to manage
+    // the existing copy (Extend / Certify) instead of paying to upload a duplicate.
+    const existing = getDuplicateExisting(e)
+    if (existing) {
+      duplicate.value = existing
+      return
+    }
     // If the upload landed but only certify failed, offer a retry instead of a hard error — the
     // blob is already stored and paid for; certifying it later costs only the certify gas.
     const retry = getCertifyRetry<UploadResult>(e)
@@ -182,6 +260,19 @@ async function upload(): Promise<void> {
     uploading.value = false
     emit('settled')
   }
+}
+
+/** User chose "Upload a new copy" in the duplicate dialog: re-run the upload, bypassing the check. */
+function uploadAnyway(): void {
+  duplicate.value = null
+  void upload(true)
+}
+
+/** User chose "Extend it" / "Certify it": hand the existing copy to the host's blob-management view. */
+function manageExisting(): void {
+  const existing = duplicate.value
+  duplicate.value = null
+  if (existing) emit('manage-existing', existing)
 }
 
 /**
@@ -222,7 +313,7 @@ async function runPendingCertify(): Promise<void> {
         ref="uploadBtnRef"
         type="button"
         :disabled="uploading || !connected || !fileName || noRelayAvailable"
-        @click="upload"
+        @click="upload()"
       >
         <span v-if="uploading" class="wru-spinner" aria-hidden="true"></span>
         Upload to Walrus
@@ -246,9 +337,33 @@ async function runPendingCertify(): Promise<void> {
       </label>
     </fieldset>
 
-    <p v-if="fileName && estimatedCost" class="wru-cost">
-      <strong>Estimated cost:</strong> {{ estimatedCost.label }}
-    </p>
+    <div v-if="fileName" class="wru-duration">
+      <label for="wru-epochs">Storage duration</label>
+      <div class="wru-duration__controls">
+        <input
+          id="wru-epochs"
+          v-model.number="uploadEpochs"
+          type="number"
+          min="1"
+          :max="maxUploadEpochs"
+          aria-describedby="wru-duration-help"
+        />
+        <span class="wru-duration__unit">epochs</span>
+        <button type="button" class="wru-preset" @click="uploadEpochs = maxUploadEpochs">Max</button>
+        <button
+          type="button"
+          class="wru-preset"
+          @click="uploadEpochs = Math.min(10, maxUploadEpochs)"
+        >
+          Short
+        </button>
+      </div>
+      <p id="wru-duration-help" class="wru-duration__help">
+        Max {{ maxUploadEpochs }} epochs per upload; extend later from “My Blobs”.
+      </p>
+    </div>
+
+    <p v-if="fileName && costLine" class="wru-cost">{{ costLine }}</p>
 
     <p id="wru-help" class="wru-hint">
       Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
@@ -280,12 +395,11 @@ async function runPendingCertify(): Promise<void> {
           tabindex="-1"
           @keydown="onDialogKeydown"
         >
-          <span class="wru-modal__spinner" aria-hidden="true"></span>
           <h2 id="wru-modal-title" class="wru-modal__title">Uploading to Walrus…</h2>
 
-          <!-- Stepped progress: a single horizontal line of nodes the upload walks through. Shown
-               only when the app reports structured progress; legacy string callers get just the
-               status line below. -->
+          <!-- Stepped progress: a single horizontal line of nodes the upload walks through (the
+               pulsing active node is the working indicator). Shown when the app reports structured
+               progress; legacy string callers get just the status line below. -->
           <ol
             v-if="activeStep"
             class="wru-steps"
@@ -308,6 +422,33 @@ async function runPendingCertify(): Promise<void> {
 
           <p class="wru-modal__status" aria-live="polite">{{ status || 'Preparing…' }}</p>
           <p class="wru-modal__hint">Keep this tab open and approve the wallet prompts.</p>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- You already own this blob: offer to manage the existing copy instead of paying for a
+         duplicate. Copy + primary action adapt to whether it's certified (Extend) or pending (Certify). -->
+    <Teleport to="body">
+      <div v-if="duplicate" class="wru-modal-backdrop">
+        <div class="wru-modal" role="dialog" aria-modal="true" aria-labelledby="wru-dup-title">
+          <h2 id="wru-dup-title" class="wru-modal__title">You already have this blob</h2>
+          <p class="wru-modal__status">
+            <template v-if="duplicate.kind === 'certified'">
+              It's already stored and available until epoch {{ duplicate.endEpoch }}. Uploading again
+              creates a duplicate and charges the relay fee again — extend its lifetime instead.
+            </template>
+            <template v-else>
+              You already uploaded this but haven't certified it yet. Finish certifying it instead of
+              paying to upload again.
+            </template>
+          </p>
+          <div class="wru-dup__actions">
+            <button type="button" class="wru-dup__primary" @click="manageExisting">
+              {{ duplicate.kind === 'certified' ? 'Extend it' : 'Certify it' }}
+            </button>
+            <button type="button" @click="uploadAnyway">Upload a new copy</button>
+            <button type="button" class="wru-dup__cancel" @click="duplicate = null">Cancel</button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -352,6 +493,51 @@ async function runPendingCertify(): Promise<void> {
 .wru-certify__msg {
   margin: 0 0 0.6rem;
   font-size: 0.9rem;
+}
+.wru-duration {
+  margin: 0.75rem 0;
+}
+.wru-duration > label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.wru-duration__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.wru-duration__controls input {
+  width: 5rem;
+}
+.wru-duration__unit {
+  font-size: 0.85rem;
+  color: var(--mw-color-text-muted, #888);
+}
+.wru-preset {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+}
+.wru-duration__help {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--mw-color-text-muted, #888);
+}
+.wru-dup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.1rem;
+}
+.wru-dup__primary {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.wru-dup__cancel {
+  color: var(--mw-color-text-muted, #888);
 }
 .wru-gated {
   margin: 0.5rem 0;
@@ -400,17 +586,8 @@ async function runPendingCertify(): Promise<void> {
 .wru-modal:focus {
   outline: none;
 }
-.wru-modal__spinner {
-  display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  border: 3px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-top-color: var(--accent, currentColor);
-  border-radius: 50%;
-  animation: wru-spin 0.8s linear infinite;
-}
 .wru-modal__title {
-  margin: 0.9rem 0 0.35rem;
+  margin: 0 0 0.35rem;
   font-size: 1.05rem;
   font-weight: 600;
 }
