@@ -1,5 +1,24 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { parseTipFromConfig, probeRelay, walrusBlobUrl, MAX_SINGLE_RESERVATION_EPOCHS } from './relay.js'
+import {
+  parseTipFromConfig,
+  probeRelay,
+  walrusBlobUrl,
+  formatCoinAmount,
+  MAX_SINGLE_RESERVATION_EPOCHS,
+} from './relay.js'
+
+describe('formatCoinAmount', () => {
+  it('shows 4 decimals for normal amounts', () => {
+    expect(formatCoinAmount(13_100_000n, 'WAL')).toBe('0.0131 WAL')
+  })
+  it('shows a tiny nonzero amount truthfully instead of rounding to 0.0000', () => {
+    // 10_000 MIST = 0.00001 SUI — the real relay tip base that was displaying as "0.0000".
+    expect(formatCoinAmount(10_000n, 'SUI')).toBe('0.00001 SUI')
+  })
+  it('renders exact zero plainly', () => {
+    expect(formatCoinAmount(0n, 'SUI')).toBe('0 SUI')
+  })
+})
 
 describe('parseTipFromConfig', () => {
   it('reads a flat const tip', () => {

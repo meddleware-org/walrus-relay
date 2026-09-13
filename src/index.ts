@@ -31,6 +31,7 @@ export {
   parseTipFromConfig,
   probeRelay,
   walrusBlobUrl,
+  formatCoinAmount,
   WALRUS_AGGREGATOR_HOSTS,
   MAX_SINGLE_RESERVATION_EPOCHS,
 } from './lib/relay.js'

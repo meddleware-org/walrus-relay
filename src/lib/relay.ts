@@ -84,3 +84,18 @@ export function walrusBlobUrl(network: WalrusNetwork, blobId: string, aggregator
  * invariant #5). Longer retention needs `extendBlobLifetime` (operator step).
  */
 export const MAX_SINGLE_RESERVATION_EPOCHS = 53
+
+/**
+ * Format a SUI/WAL base-unit amount (MIST / FROST, i.e. ×1e-9) for display. Uses 4 decimals for
+ * normal amounts, but for a tiny NON-zero value shows enough significant digits instead of rounding
+ * to `0.0000` — so a real-but-small relay tip (e.g. 10_000 MIST = 0.00001 SUI) isn't shown as zero.
+ *
+ * @param base Amount in the 1e-9 base unit (MIST for SUI, FROST for WAL).
+ * @param symbol Ticker to append (e.g. `SUI`, `WAL`).
+ */
+export function formatCoinAmount(base: bigint, symbol: string): string {
+  if (base === 0n) return `0 ${symbol}`
+  const n = Number(base) / 1e9
+  const s = n >= 0.0001 ? n.toFixed(4) : n.toFixed(9).replace(/0+$/, '').replace(/\.$/, '')
+  return `${s} ${symbol}`
+}

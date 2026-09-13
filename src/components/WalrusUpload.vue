@@ -16,7 +16,7 @@ import {
 } from '../lib/upload-steps.js'
 import { getCertifyRetry } from '../lib/certify-retry.js'
 import { getDuplicateExisting, type ExistingCopy } from '../lib/duplicate-existing.js'
-import { MAX_SINGLE_RESERVATION_EPOCHS } from '../lib/relay.js'
+import { MAX_SINGLE_RESERVATION_EPOCHS, formatCoinAmount } from '../lib/relay.js'
 
 export interface UploadResult {
   blobId: string
@@ -116,18 +116,15 @@ async function refreshStorageCost(): Promise<void> {
 }
 watch([fileSizeBytes, uploadEpochs], () => void refreshStorageCost(), { immediate: true })
 
-/** MIST/FROST (1e-9) → a short decimal string. */
-function to9dp(v: bigint): string {
-  return (Number(v) / 1e9).toFixed(4)
-}
-
 /** Combined cost line: storage in WAL (scales with epochs) + relay fee in SUI (separate tokens). */
 const costLine = computed<string | null>(() => {
   const relay = estimatedCost.value
   const storage = storageCostFrost.value
   const parts: string[] = []
-  if (storage !== null) parts.push(`~${to9dp(storage)} WAL storage (${uploadEpochs.value} epochs)`)
-  if (relay) parts.push(`~${to9dp(relay.mist)} SUI relay fee`)
+  if (storage !== null) {
+    parts.push(`~${formatCoinAmount(storage, 'WAL')} storage (${uploadEpochs.value} epochs)`)
+  }
+  if (relay) parts.push(`~${formatCoinAmount(relay.mist, 'SUI')} relay fee`)
   return parts.length ? `Estimated cost: ${parts.join(' + ')} (+ gas)` : null
 })
 
