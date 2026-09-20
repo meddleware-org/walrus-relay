@@ -88,9 +88,13 @@ export const WALRUS_AGGREGATOR_HOSTS: Record<WalrusNetwork, string> = {
 }
 
 function requireHttpsHost(host: string, context: string): void {
-  let proto: string
-  try { proto = new URL(host).protocol } catch { proto = '' }
-  if (proto !== 'https:') {
+  let url: URL
+  try { url = new URL(host) } catch {
+    throw new Error(`${context}: invalid URL: ${host}`)
+  }
+  // Allow HTTP for localhost testing only; production/remote hosts must use HTTPS.
+  const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+  if (url.protocol !== 'https:' && !isLocalhost) {
     throw new Error(`${context}: host must use https://, got: ${host}`)
   }
 }
