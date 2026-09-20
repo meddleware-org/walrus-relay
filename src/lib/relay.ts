@@ -6,31 +6,47 @@
 export type WalrusNetwork = 'testnet' | 'mainnet'
 
 /**
+ * Defense-in-depth sanity ceiling on a relay-reported tip (1 SUI). A relay is untrusted and could
+ * report an absurd or negative tip via `/v1/tip-config`; the authoritative cap lives app-side in
+ * `createWalrusClient`'s `uploadRelayMaxTipMist`, but this library surfaces the tip as an estimate
+ * with no app cap, so it must not present a hostile figure. This ceiling is calibrated against the
+ * app's own default cap (walrus-ui defaults `uploadRelayMaxTipMist` to 0.5 SUI): it sits at 2× that
+ * so it never rejects a tip the app legitimately permits, while still rejecting clearly-malicious
+ * values (thousands of SUI). Tips beyond this — or negative — are treated as "unknown" (`null`).
+ */
+export const MAX_TIP_MIST = 1_000_000_000n
+
+/** Coerce a reported tip value to a sane bigint, or `null` if it is unparseable, negative, or > cap. */
+function sanitizeTip(v: string | number): bigint | null {
+  let tip: bigint
+  try {
+    tip = BigInt(v)
+  } catch {
+    return null
+  }
+  if (tip < 0n || tip > MAX_TIP_MIST) return null
+  return tip
+}
+
+/**
  * Parse the relay tip (in MIST) from a `/v1/tip-config` response body.
  *
  * The relay reports `send_tip.kind` as either `{ const: N }` (flat) or
  * `{ linear: { base, encoded_size_mul_per_kib } }` (size-scaled). For a
  * pre-encode estimate we use the flat const or the linear base; the exact
  * charge depends on the encoded size, known only after `encode()`.
- * Returns `null` when no tip can be determined (treated as "no/unknown tip").
+ * Returns `null` when no tip can be determined, or when the reported tip is
+ * negative or exceeds {@link MAX_TIP_MIST} (both treated as "no/unknown tip").
  */
 export function parseTipFromConfig(data: unknown): bigint | null {
   const kind = (data as { send_tip?: { kind?: Record<string, unknown> } })?.send_tip?.kind
   if (!kind) return null
   if (kind.const !== undefined && kind.const !== null) {
-    try {
-      return BigInt(kind.const as string | number)
-    } catch {
-      return null
-    }
+    return sanitizeTip(kind.const as string | number)
   }
   const linear = kind.linear as { base?: unknown } | undefined
   if (linear?.base !== undefined && linear.base !== null) {
-    try {
-      return BigInt(linear.base as string | number)
-    } catch {
-      return null
-    }
+    return sanitizeTip(linear.base as string | number)
   }
   return null
 }
@@ -49,6 +65,7 @@ export interface RelayHealth {
  * result rather than catch. `timeoutMs` bounds the wait (default 3s).
  */
 export async function probeRelay(host: string, timeoutMs = 3000): Promise<RelayHealth> {
+  requireHttpsHost(host, 'probeRelay')
   try {
     const res = await fetch(`${host}/v1/tip-config`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return { accessible: false, tip: null }
@@ -70,10 +87,19 @@ export const WALRUS_AGGREGATOR_HOSTS: Record<WalrusNetwork, string> = {
   mainnet: 'https://aggregator.walrus-mainnet.walrus.space',
 }
 
+function requireHttpsHost(host: string, context: string): void {
+  let proto: string
+  try { proto = new URL(host).protocol } catch { proto = '' }
+  if (proto !== 'https:') {
+    throw new Error(`${context}: host must use https://, got: ${host}`)
+  }
+}
+
 /** Public URL that serves a RAW blob's bytes (renderable by wallets/explorers). */
 export function walrusBlobUrl(network: WalrusNetwork, blobId: string, aggregatorHost?: string): string {
   const host = aggregatorHost ?? WALRUS_AGGREGATOR_HOSTS[network]
-  return `${host}/v1/blobs/${blobId}`
+  requireHttpsHost(host, 'walrusBlobUrl')
+  return `${host}/v1/blobs/${encodeURIComponent(blobId)}`
 }
 
 /**

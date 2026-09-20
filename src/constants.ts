@@ -24,6 +24,13 @@ export const ACCESS_GATE_PLATFORM_CONFIG_ID: Record<WalrusNetwork, string> = {
  * Derived from the hardcoded package ID — no separate env var needed.
  */
 export function accessGateNftType(network: WalrusNetwork, soulbound: boolean): string {
+  const packageId = ACCESS_GATE_PACKAGE_ID[network]
+  if (!packageId) {
+    throw new Error(
+      `@meddleware/walrus-relay: ACCESS_GATE_PACKAGE_ID is not configured for '${network}'. ` +
+        `Deploy access_gate to ${network} and populate constants.ts.`,
+    )
+  }
   const variant = soulbound ? 'SoulboundAccessNFT' : 'AccessNFT'
-  return `${ACCESS_GATE_PACKAGE_ID[network]}::access_gate::${variant}`
+  return `${packageId}::access_gate::${variant}`
 }

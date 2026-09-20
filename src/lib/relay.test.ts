@@ -5,6 +5,7 @@ import {
   walrusBlobUrl,
   formatCoinAmount,
   MAX_SINGLE_RESERVATION_EPOCHS,
+  MAX_TIP_MIST,
 } from './relay.js'
 
 describe('formatCoinAmount', () => {
@@ -41,6 +42,21 @@ describe('parseTipFromConfig', () => {
   it('does not throw on garbage', () => {
     expect(parseTipFromConfig({ send_tip: { kind: { const: 'not-a-number' } } })).toBeNull()
   })
+
+  it('accepts a tip exactly at the ceiling', () => {
+    expect(parseTipFromConfig({ send_tip: { kind: { const: MAX_TIP_MIST.toString() } } })).toBe(MAX_TIP_MIST)
+  })
+
+  it('clamps an absurdly large tip to null (defense-in-depth)', () => {
+    // A malicious relay reporting thousands of SUI — must not surface as an estimate.
+    expect(parseTipFromConfig({ send_tip: { kind: { const: (MAX_TIP_MIST + 1n).toString() } } })).toBeNull()
+    expect(parseTipFromConfig({ send_tip: { kind: { linear: { base: '1000000000000000000' } } } })).toBeNull()
+  })
+
+  it('rejects a negative tip', () => {
+    expect(parseTipFromConfig({ send_tip: { kind: { const: -1 } } })).toBeNull()
+    expect(parseTipFromConfig({ send_tip: { kind: { linear: { base: -500 } } } })).toBeNull()
+  })
 })
 
 describe('walrusBlobUrl', () => {
@@ -52,10 +68,22 @@ describe('walrusBlobUrl', () => {
   it('honours a custom aggregator host', () => {
     expect(walrusBlobUrl('mainnet', 'xyz', 'https://agg.example')).toBe('https://agg.example/v1/blobs/xyz')
   })
+  it('URL-encodes special characters in the blob id', () => {
+    expect(walrusBlobUrl('testnet', 'id with spaces/slash')).toBe(
+      'https://aggregator.walrus-testnet.walrus.space/v1/blobs/id%20with%20spaces%2Fslash',
+    )
+  })
+  it('throws when a custom aggregator host is http://', () => {
+    expect(() => walrusBlobUrl('testnet', 'abc', 'http://evil.com')).toThrow('walrusBlobUrl')
+  })
 })
 
 describe('probeRelay', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it('rejects when host is not https://', async () => {
+    await expect(probeRelay('http://evil.com')).rejects.toThrow('probeRelay')
+  })
 
   it('reports accessible + tip on 200', async () => {
     vi.stubGlobal(
