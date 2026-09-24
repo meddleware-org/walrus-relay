@@ -5,6 +5,7 @@
 // deps (preserving the lazy-load boundary) and wallet-agnostic. Relay selection +
 // tip estimation come from `useWalrusRelay`.
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { UiStepper, type StepperStep } from '@meddleware/ui'
 import { useWalrusRelay } from '../composables/useWalrusRelay.js'
 import type { WalrusRelayHosts, RelayAccessOptions } from '../composables/useWalrusRelay.js'
 import {
@@ -193,6 +194,14 @@ onMounted(() => {
 // Gated + unpaid ⇒ no relay is available and upload is blocked until the user buys a pass.
 const noRelayAvailable = computed(() => availableRelays.value.length === 0)
 
+// ── Pre-upload wizard ────────────────────────────────────────────────────────
+const UPLOAD_STEPS: StepperStep[] = [
+  { id: 'file', label: 'File' },
+  { id: 'options', label: 'Options' },
+  { id: 'upload', label: 'Upload' },
+]
+const uploadStep = ref(0)
+
 function onFile(e: Event): void {
   error.value = null
   pendingCertify.value = null
@@ -210,6 +219,7 @@ function onFile(e: Event): void {
   const reader = new FileReader()
   reader.onload = () => {
     bytes = new Uint8Array(reader.result as ArrayBuffer)
+    uploadStep.value = 1
   }
   reader.readAsArrayBuffer(f)
 }
@@ -298,7 +308,10 @@ async function runPendingCertify(): Promise<void> {
 
 <template>
   <div class="wru-upload">
-    <div class="wru-row">
+    <UiStepper :steps="UPLOAD_STEPS" v-model="uploadStep" />
+
+    <!-- Step 0: File picker -->
+    <template v-if="uploadStep === 0">
       <input
         type="file"
         :accept="accept"
@@ -306,80 +319,123 @@ async function runPendingCertify(): Promise<void> {
         aria-describedby="wru-help"
         @change="onFile"
       />
-      <button
-        ref="uploadBtnRef"
-        type="button"
-        :disabled="uploading || !connected || !fileName || noRelayAvailable"
-        @click="upload()"
-      >
-        <span v-if="uploading" class="wru-spinner" aria-hidden="true"></span>
-        Upload to Walrus
-      </button>
-    </div>
+      <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
+      <p id="wru-help" class="wru-hint">
+        Select a file to continue. Requires <strong>WAL</strong> (storage) and
+        <strong>SUI</strong> (gas + relay fee) in your wallet.
+      </p>
+    </template>
 
-    <p v-if="connected && noRelayAvailable" class="wru-gated" role="status">
-      An access pass is required to upload through this relay — purchase one above to continue.
-    </p>
+    <!-- Step 1: Options (relay + duration) -->
+    <template v-else-if="uploadStep === 1">
+      <p class="wru-filename">
+        <strong>{{ fileName }}</strong>
+        <button type="button" class="wru-change-file" @click="uploadStep = 0">Change file</button>
+      </p>
 
-    <fieldset v-if="fileName && availableRelays.length > 1" class="wru-relays">
-      <legend>Upload relay</legend>
-      <label v-for="option in availableRelays" :key="option.host" class="wru-relay-opt">
-        <input
-          type="radio"
-          :value="option.host"
-          :checked="selectedRelayHost === option.host"
-          @change="(e) => (selectedRelayHost = (e.target as HTMLInputElement).value)"
-        />
-        <span>{{ option.label }}</span>
-      </label>
-    </fieldset>
+      <p v-if="connected && noRelayAvailable" class="wru-gated" role="status">
+        An access pass is required to upload through this relay — purchase one above to continue.
+      </p>
 
-    <div v-if="fileName" class="wru-duration">
-      <label for="wru-epochs">Storage duration</label>
-      <div class="wru-duration__controls">
-        <input
-          id="wru-epochs"
-          v-model.number="uploadEpochs"
-          type="number"
-          min="1"
-          :max="maxUploadEpochs"
-          aria-describedby="wru-duration-help"
-        />
-        <span class="wru-duration__unit">epochs</span>
-        <button type="button" class="wru-preset" @click="uploadEpochs = maxUploadEpochs">Max</button>
+      <fieldset v-if="availableRelays.length > 1" class="wru-relays">
+        <legend>Upload relay</legend>
+        <label v-for="option in availableRelays" :key="option.host" class="wru-relay-opt">
+          <input
+            type="radio"
+            :value="option.host"
+            :checked="selectedRelayHost === option.host"
+            @change="(e) => (selectedRelayHost = (e.target as HTMLInputElement).value)"
+          />
+          <span>{{ option.label }}</span>
+        </label>
+      </fieldset>
+
+      <div class="wru-duration">
+        <label for="wru-epochs">Storage duration</label>
+        <div class="wru-duration__controls">
+          <input
+            id="wru-epochs"
+            v-model.number="uploadEpochs"
+            type="number"
+            min="1"
+            :max="maxUploadEpochs"
+            aria-describedby="wru-duration-help"
+          />
+          <span class="wru-duration__unit">epochs</span>
+          <button type="button" class="wru-preset" @click="uploadEpochs = maxUploadEpochs">Max</button>
+          <button
+            type="button"
+            class="wru-preset"
+            @click="uploadEpochs = Math.min(10, maxUploadEpochs)"
+          >
+            Short
+          </button>
+        </div>
+        <p id="wru-duration-help" class="wru-duration__help">
+          Max {{ maxUploadEpochs }} epochs per upload; extend later from "My Blobs".
+        </p>
+      </div>
+
+      <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
+
+      <div class="wru-nav">
+        <button type="button" class="wru-back" @click="uploadStep = 0">Back</button>
         <button
           type="button"
-          class="wru-preset"
-          @click="uploadEpochs = Math.min(10, maxUploadEpochs)"
+          :disabled="noRelayAvailable"
+          @click="uploadStep = 2"
         >
-          Short
+          Next
         </button>
       </div>
-      <p id="wru-duration-help" class="wru-duration__help">
-        Max {{ maxUploadEpochs }} epochs per upload; extend later from “My Blobs”.
+    </template>
+
+    <!-- Step 2: Review + upload -->
+    <template v-else-if="uploadStep === 2">
+      <p class="wru-filename">
+        <strong>{{ fileName }}</strong>
+        <button type="button" class="wru-change-file" @click="uploadStep = 1">Change options</button>
       </p>
-    </div>
 
-    <p v-if="fileName && costLine" class="wru-cost">{{ costLine }}</p>
+      <p v-if="costLine" class="wru-cost">{{ costLine }}</p>
 
-    <p id="wru-help" class="wru-hint">
-      Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
-      wallet; three wallet approvals (relay access, blob registration, blob certification).
-    </p>
-    <!-- Upload landed but certification didn't (e.g. the wallet prompt was declined). The blob is
-         already stored and paid for; offer a one-click certify rather than forcing a full re-upload. -->
-    <div v-if="pendingCertify" class="wru-certify" role="status">
-      <p class="wru-certify__msg">
-        Your blob was uploaded and paid for but not yet <strong>certified</strong> — certify it to
-        finish (one wallet approval, gas only; no re-upload).
+      <p id="wru-help" class="wru-hint">
+        Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
+        wallet; three wallet approvals (relay access, blob registration, blob certification).
       </p>
-      <button type="button" :disabled="certifying" @click="runPendingCertify">
-        <span v-if="certifying" class="wru-spinner" aria-hidden="true"></span>
-        {{ certifying ? 'Certifying…' : 'Certify blob' }}
-      </button>
-    </div>
 
-    <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
+      <p v-if="connected && noRelayAvailable" class="wru-gated" role="status">
+        An access pass is required to upload through this relay — purchase one above to continue.
+      </p>
+
+      <!-- Upload landed but certification didn't (e.g. the wallet prompt was declined). The blob is
+           already stored and paid for; offer a one-click certify rather than forcing a full re-upload. -->
+      <div v-if="pendingCertify" class="wru-certify" role="status">
+        <p class="wru-certify__msg">
+          Your blob was uploaded and paid for but not yet <strong>certified</strong> — certify it to
+          finish (one wallet approval, gas only; no re-upload).
+        </p>
+        <button type="button" :disabled="certifying" @click="runPendingCertify">
+          <span v-if="certifying" class="wru-spinner" aria-hidden="true"></span>
+          {{ certifying ? 'Certifying…' : 'Certify blob' }}
+        </button>
+      </div>
+
+      <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
+
+      <div class="wru-nav">
+        <button type="button" class="wru-back" @click="uploadStep = 1">Back</button>
+        <button
+          ref="uploadBtnRef"
+          type="button"
+          :disabled="uploading || !connected || !fileName || noRelayAvailable"
+          @click="upload()"
+        >
+          <span v-if="uploading" class="wru-spinner" aria-hidden="true"></span>
+          Upload to Walrus
+        </button>
+      </div>
+    </template>
 
     <Teleport to="body">
       <div v-if="uploading" class="wru-modal-backdrop">
@@ -453,12 +509,6 @@ async function runPendingCertify(): Promise<void> {
 </template>
 
 <style scoped>
-.wru-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
 .wru-relays {
   margin: 0.75rem 0;
   display: flex;
@@ -556,6 +606,40 @@ async function runPendingCertify(): Promise<void> {
   to {
     transform: rotate(360deg);
   }
+}
+
+.wru-filename {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+.wru-change-file {
+  background: transparent;
+  border: 0;
+  color: var(--accent, #6366f1);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+}
+.wru-nav {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+.wru-back {
+  background: transparent;
+  border: 0;
+  color: var(--accent, #6366f1);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
 }
 
 /* ── Progress modal ─────────────────────────────────────────────────────────── */
