@@ -362,7 +362,7 @@ async function runPendingCertify(): Promise<void> {
             aria-describedby="wru-duration-help"
           />
           <span class="wru-duration__unit">epochs</span>
-          <button type="button" class="wru-preset" @click="uploadEpochs = maxUploadEpochs">Max</button>
+          <button type="button" class="wru-preset" :disabled="uploadEpochs >= maxUploadEpochs" @click="uploadEpochs = maxUploadEpochs">Max</button>
           <button
             type="button"
             class="wru-preset"
