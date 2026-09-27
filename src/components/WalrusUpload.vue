@@ -5,7 +5,7 @@
 // deps (preserving the lazy-load boundary) and wallet-agnostic. Relay selection +
 // tip estimation come from `useWalrusRelay`.
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
-import { UiStepper, type StepperStep } from '@meddleware/ui'
+import { UiDialog, UiStepper, type StepperStep } from '@meddleware/ui'
 import { useWalrusRelay } from '../composables/useWalrusRelay.js'
 import type { WalrusRelayHosts, RelayAccessOptions } from '../composables/useWalrusRelay.js'
 import {
@@ -168,24 +168,16 @@ function onProgress(s: string | UploadProgress): void {
   }
 }
 
-// Progress-modal focus management: trap focus in the dialog while uploading and restore it to the
-// Upload button afterwards (accessible modal semantics for a blocking multi-step operation).
-const dialogRef = ref<HTMLElement | null>(null)
+// The progress dialog is a native modal (UiDialog): the page is inert and focus stays inside
+// while uploading. The Upload button is disabled during the upload, so the browser can't restore
+// focus to it on close — return focus there explicitly once it is enabled again.
 const uploadBtnRef = ref<HTMLButtonElement | null>(null)
 
 watch(uploading, async (isUploading) => {
-  if (isUploading) {
-    await nextTick()
-    dialogRef.value?.focus()
-  } else {
-    uploadBtnRef.value?.focus()
-  }
+  if (isUploading) return
+  await nextTick()
+  uploadBtnRef.value?.focus()
 })
-
-// Keep focus inside the dialog: it has no interactive controls while running, so swallow Tab.
-function onDialogKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Tab') e.preventDefault()
-}
 
 onMounted(() => {
   checkOperatorRelayHealth()
@@ -437,75 +429,64 @@ async function runPendingCertify(): Promise<void> {
       </div>
     </template>
 
-    <Teleport to="body">
-      <div v-if="uploading" class="wru-modal-backdrop">
-        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- role="dialog" container; @keydown implements the focus-trap/Escape handling for the modal -->
-        <div
-          ref="dialogRef"
-          class="wru-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="wru-modal-title"
-          tabindex="-1"
-          @keydown="onDialogKeydown"
+    <!-- Blocking progress while uploading: a non-dismissible native modal (the page behind is
+         inert and focus stays in the dialog). -->
+    <UiDialog :open="uploading" title="Uploading to Walrus…" :dismissible="false" width="min(24rem, 90vw)" class="wru-modal">
+      <!-- Stepped progress: a single horizontal line of nodes the upload walks through (the
+           pulsing active node is the working indicator). Shown when the app reports structured
+           progress; legacy string callers get just the status line below. -->
+      <ol
+        v-if="activeStep"
+        class="wru-steps"
+        :aria-label="`Step ${activeIndex + 1} of ${steps.length}`"
+      >
+        <li
+          v-for="(s, i) in steps"
+          :key="s.key"
+          class="wru-step"
+          :class="`is-${stepState(i)}`"
+          :aria-current="stepState(i) === 'active' ? 'step' : undefined"
         >
-          <h2 id="wru-modal-title" class="wru-modal__title">Uploading to Walrus…</h2>
+          <span class="wru-step__node" aria-hidden="true">
+            <span v-if="stepState(i) === 'done'" class="wru-step__check">✓</span>
+            <span v-else-if="stepState(i) === 'active'" class="wru-step__pulse"></span>
+          </span>
+          <span class="wru-step__label">{{ s.label }}</span>
+        </li>
+      </ol>
 
-          <!-- Stepped progress: a single horizontal line of nodes the upload walks through (the
-               pulsing active node is the working indicator). Shown when the app reports structured
-               progress; legacy string callers get just the status line below. -->
-          <ol
-            v-if="activeStep"
-            class="wru-steps"
-            :aria-label="`Step ${activeIndex + 1} of ${steps.length}`"
-          >
-            <li
-              v-for="(s, i) in steps"
-              :key="s.key"
-              class="wru-step"
-              :class="`is-${stepState(i)}`"
-              :aria-current="stepState(i) === 'active' ? 'step' : undefined"
-            >
-              <span class="wru-step__node" aria-hidden="true">
-                <span v-if="stepState(i) === 'done'" class="wru-step__check">✓</span>
-                <span v-else-if="stepState(i) === 'active'" class="wru-step__pulse"></span>
-              </span>
-              <span class="wru-step__label">{{ s.label }}</span>
-            </li>
-          </ol>
-
-          <p class="wru-modal__status" aria-live="polite">{{ status || 'Preparing…' }}</p>
-          <p class="wru-modal__hint">Keep this tab open and approve the wallet prompts.</p>
-        </div>
-      </div>
-    </Teleport>
+      <p class="wru-modal__status" aria-live="polite">{{ status || 'Preparing…' }}</p>
+      <p class="wru-modal__hint">Keep this tab open and approve the wallet prompts.</p>
+    </UiDialog>
 
     <!-- You already own this blob: offer to manage the existing copy instead of paying for a
          duplicate. Copy + primary action adapt to whether it's certified (Extend) or pending (Certify). -->
-    <Teleport to="body">
-      <div v-if="duplicate" class="wru-modal-backdrop">
-        <div class="wru-modal" role="dialog" aria-modal="true" aria-labelledby="wru-dup-title">
-          <h2 id="wru-dup-title" class="wru-modal__title">You already have this blob</h2>
-          <p class="wru-modal__status">
-            <template v-if="duplicate.kind === 'certified'">
-              It's already stored and available until epoch {{ duplicate.endEpoch }}. Uploading again
-              creates a duplicate and charges the relay fee again — extend its lifetime instead.
-            </template>
-            <template v-else>
-              You already uploaded this but haven't certified it yet. Finish certifying it instead of
-              paying to upload again.
-            </template>
-          </p>
-          <div class="wru-dup__actions">
-            <button type="button" class="wru-dup__primary" @click="manageExisting">
-              {{ duplicate.kind === 'certified' ? 'Extend it' : 'Certify it' }}
-            </button>
-            <button type="button" @click="uploadAnyway">Upload a new copy</button>
-            <button type="button" class="wru-dup__cancel" @click="duplicate = null">Cancel</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <UiDialog
+      v-if="duplicate"
+      open
+      title="You already have this blob"
+      width="min(24rem, 90vw)"
+      class="wru-modal"
+      @close="duplicate = null"
+    >
+      <p class="wru-modal__status">
+        <template v-if="duplicate.kind === 'certified'">
+          It's already stored and available until epoch {{ duplicate.endEpoch }}. Uploading again
+          creates a duplicate and charges the relay fee again — extend its lifetime instead.
+        </template>
+        <template v-else>
+          You already uploaded this but haven't certified it yet. Finish certifying it instead of
+          paying to upload again.
+        </template>
+      </p>
+      <template #actions>
+        <button type="button" class="wru-dup__primary" @click="manageExisting">
+          {{ duplicate.kind === 'certified' ? 'Extend it' : 'Certify it' }}
+        </button>
+        <button type="button" @click="uploadAnyway">Upload a new copy</button>
+        <button type="button" class="wru-dup__cancel" @click="duplicate = null">Cancel</button>
+      </template>
+    </UiDialog>
   </div>
 </template>
 
@@ -573,12 +554,9 @@ async function runPendingCertify(): Promise<void> {
   font-size: 0.8rem;
   color: var(--mw-color-text-muted, #888);
 }
-.wru-dup__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+/* Centre the duplicate-dialog actions (UiDialog's footer right-aligns by default). */
+.wru-modal :deep(.mw-dialog__actions) {
   justify-content: center;
-  margin-top: 1.1rem;
 }
 .wru-dup__primary {
   border-color: var(--accent, #6366f1);
@@ -644,34 +622,9 @@ async function runPendingCertify(): Promise<void> {
 }
 
 /* ── Progress modal ─────────────────────────────────────────────────────────── */
-.wru-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: color-mix(in srgb, #000 62%, transparent);
-  backdrop-filter: blur(2px);
-}
+/* Progress + duplicate dialogs (UiDialog provides the box, backdrop and heading). */
 .wru-modal {
-  width: min(24rem, 100%);
-  padding: 1.75rem 1.5rem;
-  border-radius: var(--mw-radius, 12px);
-  background: var(--surface, #1b1b1f);
-  color: var(--text, #f0f0f0);
-  border: 1px solid var(--border, #333);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
   text-align: center;
-}
-.wru-modal:focus {
-  outline: none;
-}
-.wru-modal__title {
-  margin: 0 0 0.35rem;
-  font-size: 1.05rem;
-  font-weight: 600;
 }
 .wru-modal__status {
   margin: 0;

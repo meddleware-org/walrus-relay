@@ -40,6 +40,10 @@ reflect the change).
   `GateExecutor` interfaces — apps wire in their wallet adapters.
 - **No build step.** Ships TypeScript source directly (resolved by the consuming app's
   bundler via `"exports": { ".": { "default": "./src/index.ts" } }`).
+- **Modals use `@meddleware/ui`'s `UiDialog`.** `WalrusUpload`'s blocking progress dialog is
+  `UiDialog :dismissible="false"` (native modal: page inert, focus kept inside — no hand-rolled
+  focus trap); the duplicate-blob prompt is a dismissible `UiDialog`. Do not reintroduce
+  `div role="dialog"` overlays.
 - **Composables over components.** `useWalrusRelay` and `useAccessGate` are the primary
   integration surface. The Vue components (`WalrusUpload`, `TipConfigBadge`, `AccessGateCta`)
   wire them together for common use cases; composables can be used directly for custom UIs.
