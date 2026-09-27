@@ -12,6 +12,11 @@ import AccessGateCta from '../src/components/AccessGateCta.vue'
 import TipConfigBadge from '../src/components/TipConfigBadge.vue'
 
 expect.extend(axeMatchers)
+
+// jsdom has no canvas: axe-core probes getContext() during some checks, and jsdom logs
+// "Not implemented" before returning null. Return null up front — the same result axe already
+// gets — so the noise goes away without changing what is tested.
+HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 const opts = { rules: { region: { enabled: false } } }
 
 vi.mock('@meddleware/ui', async () => {
