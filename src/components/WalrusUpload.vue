@@ -439,6 +439,7 @@ async function runPendingCertify(): Promise<void> {
 
     <Teleport to="body">
       <div v-if="uploading" class="wru-modal-backdrop">
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- role="dialog" container; @keydown implements the focus-trap/Escape handling for the modal -->
         <div
           ref="dialogRef"
           class="wru-modal"
@@ -661,7 +662,7 @@ async function runPendingCertify(): Promise<void> {
   background: var(--surface, #1b1b1f);
   color: var(--text, #f0f0f0);
   border: 1px solid var(--border, #333);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
   text-align: center;
 }
 .wru-modal:focus {
