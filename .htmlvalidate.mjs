@@ -3,7 +3,17 @@
 export default {
   plugins: ['html-validate-vue'],
   extends: ['html-validate:recommended', 'html-validate-vue:recommended'],
-  elements: ['html5'],
+  elements: [
+    'html5',
+    // @meddleware/ui components that render a single native element, described to the validator so
+    // content models / form rules see through them (keys are lowercased tag names).
+    {
+      uibutton: { inherit: 'button' },
+      uitoolbarbutton: { inherit: 'button' },
+      uiselect: { inherit: 'select' },
+      uinotice: { inherit: 'p' },
+    },
+  ],
   transform: {
     '^.*\\.vue$': 'html-validate-vue',
   },
