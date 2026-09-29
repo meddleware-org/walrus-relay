@@ -46,15 +46,15 @@ function tipLabel(): string {
   font-size: 0.85rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  border: 1px solid var(--mw-color-border, #ddd);
+  border: 1px solid var(--border, #ded6cf);
 }
 .wru-badge[data-state='up'] {
-  color: var(--mw-color-success, #0a7a33);
+  color: var(--ok, #177542);
 }
 .wru-badge[data-state='down'] {
-  color: var(--mw-color-danger, #b00020);
+  color: var(--danger, #b3261e);
 }
 .wru-badge[data-state='loading'] {
-  color: var(--mw-color-text-muted, #666);
+  color: var(--muted, #6e635c);
 }
 </style>

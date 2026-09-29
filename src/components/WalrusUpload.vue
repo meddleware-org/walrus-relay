@@ -506,18 +506,18 @@ async function runPendingCertify(): Promise<void> {
 .wru-hint {
   margin: 0.5rem 0;
   font-size: 0.9rem;
-  color: var(--mw-color-text-muted, #666);
+  color: var(--muted, #6e635c);
 }
 .wru-error {
   margin: 0.5rem 0;
-  color: var(--mw-color-danger, #b00020);
+  color: var(--danger, #b3261e);
 }
 .wru-certify {
   margin: 0.75rem 0;
   padding: 0.75rem 0.9rem;
-  border: 1px solid var(--accent, #6366f1);
-  border-radius: var(--mw-radius, 8px);
-  background: color-mix(in srgb, var(--accent, #6366f1) 8%, transparent);
+  border: 1px solid var(--accent, #b84527);
+  border-radius: var(--radius, 10px);
+  background: color-mix(in srgb, var(--accent, #b84527) 8%, transparent);
 }
 .wru-certify__msg {
   margin: 0 0 0.6rem;
@@ -543,7 +543,7 @@ async function runPendingCertify(): Promise<void> {
 }
 .wru-duration__unit {
   font-size: 0.85rem;
-  color: var(--mw-color-text-muted, #888);
+  color: var(--muted, #6e635c);
 }
 .wru-preset {
   font-size: 0.8rem;
@@ -552,23 +552,23 @@ async function runPendingCertify(): Promise<void> {
 .wru-duration__help {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
-  color: var(--mw-color-text-muted, #888);
+  color: var(--muted, #6e635c);
 }
 /* Centre the duplicate-dialog actions (UiDialog's footer right-aligns by default). */
 .wru-modal :deep(.mw-dialog__actions) {
   justify-content: center;
 }
 .wru-dup__primary {
-  border-color: var(--accent, #6366f1);
-  color: var(--accent, #6366f1);
+  border-color: var(--accent, #b84527);
+  color: var(--accent, #b84527);
 }
 .wru-dup__cancel {
-  color: var(--mw-color-text-muted, #888);
+  color: var(--muted, #6e635c);
 }
 .wru-gated {
   margin: 0.5rem 0;
   font-size: 0.9rem;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #b84527);
 }
 .wru-spinner {
   display: inline-block;
@@ -598,7 +598,7 @@ async function runPendingCertify(): Promise<void> {
 .wru-change-file {
   background: transparent;
   border: 0;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #b84527);
   cursor: pointer;
   padding: 0;
   font: inherit;
@@ -615,7 +615,7 @@ async function runPendingCertify(): Promise<void> {
 .wru-back {
   background: transparent;
   border: 0;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #b84527);
   cursor: pointer;
   padding: 0;
   font: inherit;
@@ -629,13 +629,13 @@ async function runPendingCertify(): Promise<void> {
 .wru-modal__status {
   margin: 0;
   font-size: 0.95rem;
-  color: var(--text, #f0f0f0);
+  color: var(--text, #201b19);
   min-height: 1.4em;
 }
 .wru-modal__hint {
   margin: 0.6rem 0 0;
   font-size: 0.8rem;
-  color: var(--muted, #888);
+  color: var(--muted, #6e635c);
 }
 
 /* ── Stepped progress ───────────────────────────────────────────────────────── */
@@ -662,12 +662,12 @@ async function runPendingCertify(): Promise<void> {
   right: 50%;
   left: -50%;
   height: 2px;
-  background: var(--border, #3a3a40);
+  background: var(--border, #ded6cf);
   z-index: 0;
 }
 .wru-step.is-done::before,
 .wru-step.is-active::before {
-  background: var(--accent, #6366f1);
+  background: var(--accent, #b84527);
 }
 .wru-step__node {
   position: relative;
@@ -678,37 +678,37 @@ async function runPendingCertify(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface, #1b1b1f);
-  border: 2px solid var(--border, #3a3a40);
-  color: #fff;
+  background: var(--surface, #fff);
+  border: 2px solid var(--border, #ded6cf);
+  color: var(--accent-contrast, #fff);
   font-size: 0.7rem;
   line-height: 1;
   transition: border-color 0.2s, background-color 0.2s;
 }
 .wru-step.is-done .wru-step__node {
-  background: var(--accent, #6366f1);
-  border-color: var(--accent, #6366f1);
+  background: var(--accent, #b84527);
+  border-color: var(--accent, #b84527);
 }
 .wru-step.is-active .wru-step__node {
-  border-color: var(--accent, #6366f1);
+  border-color: var(--accent, #b84527);
 }
 .wru-step__pulse {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: var(--accent, #6366f1);
+  background: var(--accent, #b84527);
   animation: wru-pulse 1s ease-in-out infinite;
 }
 .wru-step__label {
   font-size: 0.72rem;
   line-height: 1.1;
   text-align: center;
-  color: var(--muted, #888);
+  color: var(--muted, #6e635c);
   white-space: nowrap;
 }
 .wru-step.is-done .wru-step__label,
 .wru-step.is-active .wru-step__label {
-  color: var(--text, #f0f0f0);
+  color: var(--text, #201b19);
 }
 .wru-step.is-active .wru-step__label {
   font-weight: 600;
