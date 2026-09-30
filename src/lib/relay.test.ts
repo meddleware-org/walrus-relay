@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   parseTipFromConfig,
+  parseTipConfig,
+  estimateTipMist,
+  approxEncodedBytes,
   probeRelay,
   walrusBlobUrl,
   formatCoinAmount,
@@ -112,5 +115,29 @@ describe('probeRelay', () => {
 describe('constants', () => {
   it('caps epochs at Walrus max_epochs_ahead', () => {
     expect(MAX_SINGLE_RESERVATION_EPOCHS).toBe(53)
+  })
+})
+
+describe('linear tip schedules', () => {
+  const linear = { send_tip: { kind: { linear: { base: 1_000_000, encoded_size_mul_per_kib: 10 } } } }
+
+  it('parses the base and per-KiB multiplier', () => {
+    expect(parseTipConfig(linear)).toEqual({ kind: 'linear', base: 1_000_000n, perKib: 10n })
+  })
+
+  it('charges base + perKib × floor(encoded bytes / 1024)', () => {
+    expect(parseTipFromConfig(linear, 10 * 1024)).toBe(1_000_100n)
+    expect(parseTipFromConfig(linear, 1023)).toBe(1_000_000n)
+  })
+
+  it('stays under the ceiling at the 100 MiB edge cap', () => {
+    const cfg = parseTipConfig(linear)!
+    const tip = estimateTipMist(cfg, approxEncodedBytes(100 * 1024 * 1024))
+    expect(tip).not.toBeNull()
+    expect(tip! < 50_000_000n).toBe(true)
+  })
+
+  it('treats no_tip as zero', () => {
+    expect(parseTipFromConfig('no_tip')).toBe(0n)
   })
 })

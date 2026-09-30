@@ -6,49 +6,88 @@
 export type WalrusNetwork = 'testnet' | 'mainnet'
 
 /**
- * Defense-in-depth sanity ceiling on a relay-reported tip (1 SUI). A relay is untrusted and could
- * report an absurd or negative tip via `/v1/tip-config`; the authoritative cap lives app-side in
- * `createWalrusClient`'s `uploadRelayMaxTipMist`, but this library surfaces the tip as an estimate
- * with no app cap, so it must not present a hostile figure. This ceiling is calibrated against the
- * app's own default cap (walrus-ui defaults `uploadRelayMaxTipMist` to 0.5 SUI): it sits at 2× that
- * so it never rejects a tip the app legitimately permits, while still rejecting clearly-malicious
- * values (thousands of SUI). Tips beyond this — or negative — are treated as "unknown" (`null`).
+ * Defense-in-depth ceiling on a relay-reported tip: 0.05 SUI. A relay is untrusted and could report
+ * an absurd or negative tip via `/v1/tip-config`. The authoritative cap is the client's
+ * `uploadRelayMaxTipMist` (the SDK refuses a larger tip); this library surfaces the tip only as an
+ * estimate, so it clamps to the same workspace-wide ceiling. 0.05 SUI is ~8× the worst-case tip of
+ * the operator's linear relay (`1_000_000 + 10/KiB`) at the 100 MiB edge cap, so no legitimate tip
+ * is rejected. Tips beyond this — or negative — are treated as "unknown" (`null`).
  */
-export const MAX_TIP_MIST = 1_000_000_000n
+export const MAX_TIP_MIST = 50_000_000n
 
-/** Coerce a reported tip value to a sane bigint, or `null` if it is unparseable, negative, or > cap. */
-function sanitizeTip(v: string | number): bigint | null {
-  let tip: bigint
+/** A relay's advertised tip schedule (MIST). */
+export type RelayTipConfig =
+  | { kind: 'none' }
+  | { kind: 'const'; mist: bigint }
+  | { kind: 'linear'; base: bigint; perKib: bigint }
+
+/** Coerce a reported value to a non-negative bigint, or `null` if unparseable or negative. */
+function toMist(v: unknown): bigint | null {
+  if (typeof v !== 'string' && typeof v !== 'number') return null
   try {
-    tip = BigInt(v)
+    const n = BigInt(v)
+    return n < 0n ? null : n
   } catch {
     return null
   }
-  if (tip < 0n || tip > MAX_TIP_MIST) return null
-  return tip
 }
 
 /**
- * Parse the relay tip (in MIST) from a `/v1/tip-config` response body.
- *
- * The relay reports `send_tip.kind` as either `{ const: N }` (flat) or
- * `{ linear: { base, encoded_size_mul_per_kib } }` (size-scaled). For a
- * pre-encode estimate we use the flat const or the linear base; the exact
- * charge depends on the encoded size, known only after `encode()`.
- * Returns `null` when no tip can be determined, or when the reported tip is
- * negative or exceeds {@link MAX_TIP_MIST} (both treated as "no/unknown tip").
+ * Parse a `/v1/tip-config` response body into its tip schedule, or `null` if it is malformed.
+ * Handles `"no_tip"`, `{ send_tip: { kind: { const: N } } }` and
+ * `{ send_tip: { kind: { linear: { base, encoded_size_mul_per_kib } } } }`.
  */
-export function parseTipFromConfig(data: unknown): bigint | null {
-  const kind = (data as { send_tip?: { kind?: Record<string, unknown> } })?.send_tip?.kind
-  if (!kind) return null
-  if (kind.const !== undefined && kind.const !== null) {
-    return sanitizeTip(kind.const as string | number)
+export function parseTipConfig(data: unknown): RelayTipConfig | null {
+  if (data === 'no_tip' || (data as { no_tip?: unknown } | null)?.no_tip !== undefined) {
+    return { kind: 'none' }
   }
-  const linear = kind.linear as { base?: unknown } | undefined
-  if (linear?.base !== undefined && linear.base !== null) {
-    return sanitizeTip(linear.base as string | number)
+  const kind = (data as { send_tip?: { kind?: Record<string, unknown> } })?.send_tip?.kind
+  if (!kind || typeof kind !== 'object') return null
+  if (kind.const !== undefined && kind.const !== null) {
+    const mist = toMist(kind.const)
+    return mist === null ? null : { kind: 'const', mist }
+  }
+  const linear = kind.linear as { base?: unknown; encoded_size_mul_per_kib?: unknown } | undefined
+  if (linear && typeof linear === 'object') {
+    const base = toMist(linear.base)
+    const perKib = toMist(linear.encoded_size_mul_per_kib ?? 0)
+    return base === null || perKib === null ? null : { kind: 'linear', base, perKib }
   }
   return null
+}
+
+/**
+ * Tip (MIST) the relay will charge for a blob whose ENCODED size is `encodedBytes`, or `null` if
+ * it exceeds {@link MAX_TIP_MIST}. Without a size, a linear schedule yields its base (a floor).
+ */
+export function estimateTipMist(cfg: RelayTipConfig, encodedBytes?: number): bigint | null {
+  let tip: bigint
+  if (cfg.kind === 'none') tip = 0n
+  else if (cfg.kind === 'const') tip = cfg.mist
+  else {
+    const kib = encodedBytes === undefined ? 0n : BigInt(Math.floor(Math.max(0, encodedBytes) / 1024))
+    tip = cfg.base + cfg.perKib * kib
+  }
+  return tip > MAX_TIP_MIST ? null : tip
+}
+
+/**
+ * Rough encoded size of a raw blob before `encode()` runs (UI estimates only): Walrus erasure
+ * coding expands data ~5× and adds a fixed per-blob metadata overhead (~61 MiB on a 1000-shard
+ * committee). The exact size is known only after encoding.
+ */
+export function approxEncodedBytes(rawBytes: number): number {
+  return 61 * 1024 * 1024 + 5 * Math.max(0, rawBytes)
+}
+
+/**
+ * Parse the relay tip (in MIST) from a `/v1/tip-config` response body. For a linear schedule pass
+ * `encodedBytes` to include the size-dependent term; otherwise its base is returned. Returns `null`
+ * when no tip can be determined or it exceeds {@link MAX_TIP_MIST}.
+ */
+export function parseTipFromConfig(data: unknown, encodedBytes?: number): bigint | null {
+  const cfg = parseTipConfig(data)
+  return cfg === null ? null : estimateTipMist(cfg, encodedBytes)
 }
 
 /** Result of a relay health probe. */
@@ -87,7 +126,8 @@ export const WALRUS_AGGREGATOR_HOSTS: Record<WalrusNetwork, string> = {
   mainnet: 'https://aggregator.walrus-mainnet.walrus.space',
 }
 
-function requireHttpsHost(host: string, context: string): void {
+/** Throw unless `host` is an https URL (plain http is allowed for a localhost testbed only). */
+export function requireHttpsHost(host: string, context: string): void {
   let url: URL
   try { url = new URL(host) } catch {
     throw new Error(`${context}: invalid URL: ${host}`)

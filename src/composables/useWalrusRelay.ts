@@ -1,6 +1,12 @@
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
-import { parseTipFromConfig } from '../lib/relay.js'
+import {
+  approxEncodedBytes,
+  estimateTipMist,
+  parseTipConfig,
+  requireHttpsHost,
+  type RelayTipConfig,
+} from '../lib/relay.js'
 
 /**
  * The two relay hosts a consumer offers: the operator's own relay (collects the
@@ -52,7 +58,11 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
 
   const selectedRelayHost = ref(operatorRelayHost)
   const operatorRelayAccessible = ref<boolean | null>(null) // null = checking, true/false = result
-  const operatorRelayTip = ref<bigint | null>(null)
+  const operatorTipConfig = ref<RelayTipConfig | null>(null)
+  /** Base tip (a floor for linear schedules); the size-aware estimate is `estimatedCost`. */
+  const operatorRelayTip = computed(() =>
+    operatorTipConfig.value ? estimateTipMist(operatorTipConfig.value) : null,
+  )
   const fileSizeBytes = ref(0)
 
   // Health check: can we reach the operator relay's /v1/tip-config?
@@ -62,15 +72,17 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
       return
     }
     try {
+      requireHttpsHost(operatorRelayHost, 'checkOperatorRelayHealth')
       const res = await fetch(`${operatorRelayHost}/v1/tip-config`, {
         signal: AbortSignal.timeout(3000),
       })
       if (res.ok) {
         operatorRelayAccessible.value = true
         try {
-          operatorRelayTip.value = parseTipFromConfig(await res.json())
+          operatorTipConfig.value = parseTipConfig(await res.json())
         } catch {
-          // If we can't parse the tip, that's okay — we'll show "No tip" in the UI
+          // Deliberate: an unparseable tip-config leaves the estimate unknown (display only); the
+          // SDK still enforces the client tip ceiling on the real payment.
         }
       } else {
         operatorRelayAccessible.value = false
@@ -142,17 +154,19 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
       return { mist: 0n, sui: '0', label: 'Free (public relay)' }
     }
 
-    if (operatorRelayTip.value === null) {
-      return null // not yet loaded
+    if (operatorTipConfig.value === null) {
+      return null // not yet loaded (or unparseable)
     }
 
-    // Ballpark: the base (const) or linear base. Exact cost depends on encoding.
-    const tipMist = operatorRelayTip.value
+    // Size-aware estimate: a linear schedule is charged on the ENCODED size, approximated here
+    // from the raw size (the exact figure is known only after encoding).
+    const tipMist = estimateTipMist(operatorTipConfig.value, approxEncodedBytes(fileSizeBytes.value))
+    if (tipMist === null) return null // beyond the sanity ceiling — shown as unknown
     const tipSui = Number(tipMist) / 1e9
     return {
       mist: tipMist,
       sui: tipSui.toFixed(6),
-      label: `Estimated relay fee: ${tipSui.toFixed(4)} SUI`,
+      label: `Estimated relay fee: ~${tipSui.toFixed(4)} SUI`,
     }
   })
 

@@ -57,6 +57,21 @@ export function useAccessGate(deps: {
   const nftId = ref<string | null>(null)
   const checking = ref(false)
   const error = ref<string | null>(null)
+  /** Bumped on every reset/new check so a response for a previous wallet is discarded. */
+  let generation = 0
+
+  /**
+   * Forget everything known about the previous wallet (call on disconnect or account switch):
+   * access, uses and the held NFT, and invalidate any in-flight ownership check.
+   */
+  function reset(): void {
+    generation++
+    hasAccess.value = gateConfigured ? null : true
+    usesRemaining.value = null
+    nftId.value = null
+    error.value = null
+    checking.value = false
+  }
 
   /** Query whether `address` holds the gate NFT. Cheap; safe to call on connect. */
   async function checkOwnership(address: string): Promise<void> {
@@ -64,10 +79,12 @@ export function useAccessGate(deps: {
       hasAccess.value = true
       return
     }
+    const mine = ++generation
     checking.value = true
     error.value = null
     try {
       const nfts = await fetchAccessNfts(deps.getClient(), address, gate.nftType, gate.gateId)
+      if (mine !== generation) return // stale: the wallet changed while this check was in flight
       // Filter out exhausted NFTs (usesRemaining = 0). Unlimited passes have usesRemaining = null.
       // Sort ascending so the most-depleted NFT is consumed first (minimises stranded partial uses).
       // Unlimited passes sort last (treated as Infinity).
@@ -82,13 +99,14 @@ export function useAccessGate(deps: {
       usesRemaining.value = valid.length ? valid[0].usesRemaining : null
       nftId.value = valid.length ? valid[0].objectId : null
     } catch (e) {
+      if (mine !== generation) return
       // A failed check must NOT hard-block the user: leave access false but keep the
       // purchase path available (the gateway re-verifies server-side regardless).
       hasAccess.value = false
       nftId.value = null
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
-      checking.value = false
+      if (mine === generation) checking.value = false
     }
   }
 
@@ -97,7 +115,14 @@ export function useAccessGate(deps: {
     if (!gate) throw new Error('No access gate configured for this network.')
     const tx = buildPurchaseTx(gate, gate.priceMist)
     const res = await executor.signAndExecute(tx)
-    if (res.digest) await executor.waitForTransaction(res.digest).catch(() => {})
+    let waitError: unknown
+    if (res.digest) {
+      try {
+        await executor.waitForTransaction(res.digest)
+      } catch (e) {
+        waitError = e // the purchase may still have landed — ownership below decides
+      }
+    }
     // Sui's owned-object index can lag behind transaction finality by several seconds.
     // Retry until the NFT appears or the retries are exhausted.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -105,6 +130,7 @@ export function useAccessGate(deps: {
       if (hasAccess.value === true) return
       if (attempt < 4) await new Promise<void>((r) => setTimeout(r, 1500))
     }
+    if (waitError) throw waitError
   }
 
   /** Build the consume PTB for a single-use NFT (woven into the upload flow before proving). */
@@ -160,7 +186,11 @@ export function useAccessGate(deps: {
     // 2. Execute the on-chain consume transaction to record use of this nonce.
     const consumeTx = buildConsumeTx(gate, currentNftId, challenge.nonce)
     const res = await opts.executor.signAndExecute(consumeTx as Transaction)
-    if (res.digest) await opts.executor.waitForTransaction(res.digest).catch(() => {})
+    if (!res.digest) throw new Error('The consume transaction returned no digest.')
+    // Best-effort wait: the gateway itself re-reads the consume transaction with a bounded
+    // retry, so an indexing delay here must not abort the upload — a genuinely failed consume is
+    // rejected by the gateway and surfaced by the upload step.
+    await opts.executor.waitForTransaction(res.digest).catch(() => {})
 
     // 3. Optimistically update local uses so the UI reflects the spent use immediately
     //    without waiting for a full checkOwnership round-trip.
@@ -192,6 +222,7 @@ export function useAccessGate(deps: {
     /** Convenience: gate configured AND access confirmed. */
     accessGranted: computed(() => !gateConfigured || hasAccess.value === true),
     checkOwnership,
+    reset,
     purchase,
     buildConsume,
     buildRelayAccessToken,

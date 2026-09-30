@@ -54,6 +54,8 @@ const props = withDefaults(
         relayHost: string
         epochs: number
         force?: boolean
+        /** Register the blob as deletable (owner may delete it early) instead of permanent. */
+        deletable?: boolean
         onStatus: (s: string | UploadProgress) => void
       },
     ) => Promise<UploadResult>
@@ -92,6 +94,9 @@ let bytes: Uint8Array | null = null
 // Chosen storage reservation length (epochs). Defaults to the single-reservation max; clamped to
 // [1, maxUploadEpochs]. Longer lifetimes are reached later via Extend (max_epochs_ahead caps a tx).
 const uploadEpochs = ref(maxUploadEpochs)
+// Permanence is an explicit, visible choice. Permanent is the default: nobody (not even the
+// uploader) can remove the blob before it expires, and existing permanent copies are reused.
+const permanent = ref(true)
 watch(uploadEpochs, (v) => {
   const clamped = Math.min(maxUploadEpochs, Math.max(1, Math.floor(Number(v) || 1)))
   if (clamped !== v) uploadEpochs.value = clamped
@@ -232,6 +237,7 @@ async function upload(force = false): Promise<void> {
       relayHost: selectedRelayHost.value,
       epochs: uploadEpochs.value,
       force,
+      deletable: !permanent.value,
       onStatus: onProgress,
     })
     emit('uploaded', result)
@@ -365,6 +371,17 @@ async function runPendingCertify(): Promise<void> {
         </div>
         <p id="wru-duration-help" class="wru-duration__help">
           Max {{ maxUploadEpochs }} epochs per upload; extend later from "My Blobs".
+        </p>
+      </div>
+
+      <div class="wru-permanence">
+        <label>
+          <input v-model="permanent" type="checkbox" aria-describedby="wru-permanence-help" />
+          Permanent
+        </label>
+        <p id="wru-permanence-help" class="wru-duration__help">
+          A permanent blob cannot be deleted by anyone — including you — before it expires. Untick to
+          store it as deletable, so you can remove it early and reclaim the unused storage.
         </p>
       </div>
 
@@ -732,5 +749,15 @@ async function runPendingCertify(): Promise<void> {
   .wru-step__pulse {
     animation: none;
   }
+}
+
+.wru-permanence {
+  margin: 0.75rem 0;
+}
+.wru-permanence label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
 }
 </style>

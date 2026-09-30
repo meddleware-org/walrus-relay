@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: '30 3 * * *' # nightly, staggered after walrus-client
 
+permissions:
+  contents: read
+
 jobs:
   localnet:
     name: walrus-relay localnet suite
@@ -15,33 +18,35 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout walrus-relay (into repos/walrus-relay)
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: repos/walrus-relay
 
       - name: Checkout walrus-client (provides localnet/ harness)
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: meddleware-org/walrus-client
           ref: ${{ vars.WALRUS_CLIENT_REF || 'main' }}
           path: repos/walrus-client
 
       - name: Checkout access-gate-sui (sibling, for the localnet gate deploy)
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: meddleware-org/access-gate-sui
           ref: ${{ vars.ACCESS_GATE_REF || 'main' }}
           path: repos/access-gate-sui
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
 
       - name: Install sui CLI (suiup)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | bash
+          curl -fsSLo /tmp/suiup.tgz "https://github.com/MystenLabs/suiup/releases/download/v0.0.14/suiup-Linux-musl-x86_64.tar.gz"
+          echo "c0b9fea95d52c4c5855478c3ee56e58e446614f32300dbd41fcc637a2e09878a  /tmp/suiup.tgz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/suiup.tgz -C "$HOME/.local/bin" suiup
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/suiup" install sui@testnet --yes || "$HOME/.local/bin/suiup" install sui@testnet
+          "$HOME/.local/bin/suiup" install sui@testnet-v1.80.0 --yes
           # Initialise the default client config now (first-run prompts for keypair creation).
           # Cannot register the localnet env yet — the node starts in the next step.
           "$HOME/.local/bin/sui" client envs || true

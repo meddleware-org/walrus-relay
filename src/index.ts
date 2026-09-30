@@ -29,13 +29,17 @@ export type {
 
 export {
   parseTipFromConfig,
+  parseTipConfig,
+  estimateTipMist,
+  approxEncodedBytes,
+  MAX_TIP_MIST,
   probeRelay,
   walrusBlobUrl,
   formatCoinAmount,
   WALRUS_AGGREGATOR_HOSTS,
   MAX_SINGLE_RESERVATION_EPOCHS,
 } from './lib/relay.js'
-export type { RelayHealth, WalrusNetwork } from './lib/relay.js'
+export type { RelayHealth, RelayTipConfig, WalrusNetwork } from './lib/relay.js'
 
 export {
   ACCESS_GATE_PACKAGE_ID,
