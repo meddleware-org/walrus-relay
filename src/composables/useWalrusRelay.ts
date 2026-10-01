@@ -40,9 +40,11 @@ export interface RelayOption {
 /**
  * Manage Walrus relay selection and cost estimation.
  *
- * Detects whether the operator relay is accessible (health check on `/v1/tip-config`).
- * If accessible, shows both operator (default) and public relay options. If not,
- * shows only the public relay. Calculates estimated cost based on file size.
+ * Detects whether the operator relay is accessible (health check on `/v1/tip-config`). While it is
+ * up, the operator relay is the only option (and none until a configured gate's pass is
+ * confirmed); the public relay is offered only when no operator relay is configured or the check
+ * failed. Nothing is offered while the check is pending (`relayPending`). Calculates the estimated
+ * cost based on file size.
  *
  * Generic over the host pair — the consuming app injects its `WALRUS_RELAY_HOSTS`
  * (operator) + `PUBLIC_WALRUS_RELAY_HOSTS` (public) for the active network.
@@ -93,12 +95,17 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
   }
 
   // Relay-selection policy (anti-bypass):
+  //   • operator configured & health check pending          ⇒ NO options yet (the public relay is
+  //     not a fallback until the check has actually failed — otherwise an upload started in the
+  //     first moments would use the free relay while the operator relay is up).
   //   • operator configured & reachable & access satisfied ⇒ operator relay ONLY (NFT + tip).
   //   • operator configured & reachable & NO access        ⇒ NO options — drive the purchase CTA;
   //     the free public relay is deliberately withheld so users can't dodge the paywall while the
-  //     service is up.
+  //     service is up. A gate whose ownership check has not resolved yet also yields no options.
   //   • operator not configured OR unreachable             ⇒ public relay as a genuine fallback.
+  // Callers must block uploads while this is empty (see `relayPending` for the waiting state).
   const availableRelays = computed((): RelayOption[] => {
+    if (isOperatorRelayConfigured && operatorRelayAccessible.value === null) return []
     const operatorUp = isOperatorRelayConfigured && operatorRelayAccessible.value === true
 
     if (operatorUp) {
@@ -170,9 +177,24 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
     }
   })
 
+  /**
+   * True while a decision is still pending: the operator health check has not answered, or the
+   * relay is up and a configured gate's ownership check has not resolved. Show "checking…"
+   * rather than the purchase prompt, and keep uploads blocked.
+   */
+  const relayPending = computed(
+    () =>
+      (isOperatorRelayConfigured && operatorRelayAccessible.value === null) ||
+      (isOperatorRelayConfigured &&
+        operatorRelayAccessible.value === true &&
+        gateConfigured &&
+        access.hasAccess?.value == null),
+  )
+
   return {
     selectedRelayHost,
     operatorRelayAccessible,
+    relayPending,
     availableRelays,
     purchaseAccessAvailable,
     accessSatisfied,

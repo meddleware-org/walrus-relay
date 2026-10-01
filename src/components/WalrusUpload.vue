@@ -78,7 +78,7 @@ const emit = defineEmits<{
 /** Upper bound on a single reservation (Walrus `max_epochs_ahead`). */
 const maxUploadEpochs = MAX_SINGLE_RESERVATION_EPOCHS
 
-const { selectedRelayHost, availableRelays, estimatedCost, fileSizeBytes, checkOperatorRelayHealth } =
+const { selectedRelayHost, availableRelays, relayPending, estimatedCost, fileSizeBytes, checkOperatorRelayHealth } =
   useWalrusRelay(props.hosts, props.access)
 
 const uploading = ref(false)
@@ -327,7 +327,8 @@ async function runPendingCertify(): Promise<void> {
         <button type="button" class="wru-change-file" @click="uploadStep = 0">Change file</button>
       </p>
 
-      <p v-if="connected && noRelayAvailable" class="wru-gated" role="status">
+      <p v-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
+      <p v-else-if="connected && noRelayAvailable" class="wru-gated" role="status">
         An access pass is required to upload through this relay — purchase one above to continue.
       </p>
 
@@ -409,7 +410,8 @@ async function runPendingCertify(): Promise<void> {
         wallet; three wallet approvals (relay access, blob registration, blob certification).
       </p>
 
-      <p v-if="connected && noRelayAvailable" class="wru-gated" role="status">
+      <p v-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
+      <p v-else-if="connected && noRelayAvailable" class="wru-gated" role="status">
         An access pass is required to upload through this relay — purchase one above to continue.
       </p>
 
