@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const fetchAccessNfts = vi.fn()
-vi.mock('@meddleware/nft-gate-client', () => ({
+vi.mock('@meddleware/access-gate-client', () => ({
   fetchAccessNfts: (...args: unknown[]) => fetchAccessNfts(...args),
   buildPurchaseTx: vi.fn(),
   buildConsumeTx: vi.fn(),
-  fetchChallenge: vi.fn(),
-  buildAccessProof: vi.fn(),
 }))
 
 import { useAccessGate } from './useAccessGate'

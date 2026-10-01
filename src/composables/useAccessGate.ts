@@ -1,24 +1,14 @@
 import { computed, ref } from 'vue'
 import type { Transaction } from '@mysten/sui/transactions'
-import {
-  fetchAccessNfts,
-  buildPurchaseTx,
-  buildConsumeTx,
-  fetchChallenge,
-  buildAccessProof,
-} from '@meddleware/nft-gate-client'
-import type {
-  AccessGateConfig,
-  OwnedObjectsClient,
-  PersonalMessageSigner,
-} from '@meddleware/nft-gate-client'
+import { fetchAccessNfts, buildPurchaseTx, buildConsumeTx } from '@meddleware/access-gate-client'
+import type { AccessGateConfig, OwnedObjectsClient } from '@meddleware/access-gate-client'
 
-export type { AccessGateConfig, OwnedObjectsClient, PersonalMessageSigner }
+export type { AccessGateConfig, OwnedObjectsClient }
 
 /**
- * An access-gate config plus the on-chain purchase price. The base
- * {@link AccessGateConfig} (from `@meddleware/nft-gate-client`) identifies the gate +
- * NFT type; `priceMist` is what {@link buildPurchaseTx} splits from gas.
+ * An access-gate config plus the on-chain purchase price. Build it with `relayGateConfig`, which
+ * fixes the package and `PlatformConfig` to Meddleware's deployment; `priceMist` is what
+ * {@link buildPurchaseTx} splits from gas.
  */
 export interface RelayGateConfig extends AccessGateConfig {
   priceMist: bigint | number
@@ -35,13 +25,14 @@ export interface GateExecutor {
 }
 
 /**
- * Reactive NFT-gate state for the operator relay — generic over the gate config and
- * the Sui client, built on `@meddleware/nft-gate-client` (single source of truth for
- * the ownership/purchase/consume/proof wire format).
+ * Reactive NFT-gate state for the operator relay, built on `@meddleware/access-gate-client`
+ * (ownership reads and the purchase/consume transactions).
  *
- * When `gate` is `null` the relay is treated as OPEN (`hasAccess === true`) and the
- * composable is inert. When a gate IS configured, `checkOwnership` decides access with
- * one `getOwnedObjects` call, and `purchase`/`buildRelayAccessToken` drive buy + prove.
+ * When `gate` is `null` the relay is treated as OPEN (`hasAccess === true`) and the composable
+ * is inert. When a gate IS configured, `checkOwnership` decides access and `purchase` buys a
+ * pass. Relay access for an upload (consume + signed proof, with resume) is
+ * `createGatedAccess` from `@meddleware/walrus-client/flow`, given this composable's
+ * `buildConsume`.
  */
 export function useAccessGate(deps: {
   gate: RelayGateConfig | null
@@ -139,78 +130,6 @@ export function useAccessGate(deps: {
     return buildConsumeTx(gate, heldNftId, nonce)
   }
 
-  /**
-   * Fetch a challenge from the gateway (served at the operator relay host), sign it, and
-   * return the base64 access-proof token to pass to the Walrus client as the relay auth
-   * token. For single-use gates supply the on-chain consume `consumeDigest`.
-   */
-  async function buildRelayAccessToken(opts: {
-    relayHost: string
-    address: string
-    sign: PersonalMessageSigner
-    consumeDigest?: string
-  }): Promise<string> {
-    const challenge = await fetchChallenge(opts.relayHost)
-    return buildAccessProof({
-      address: opts.address,
-      challenge,
-      sign: opts.sign,
-      consumeDigest: opts.consumeDigest,
-    })
-  }
-
-  /**
-   * Full single-use flow: fetch a gateway challenge, execute the on-chain
-   * `access_gate::consume` transaction to record the use, then build and return a
-   * signed access-proof token with the `consumeDigest`. Required when the gateway
-   * operates in SINGLE_USE=true mode — the proof is rejected without a valid
-   * on-chain consume event matching the nonce.
-   *
-   * This triggers one wallet approval (the consume tx). In the Walrus upload flow
-   * the caller should invoke this BEFORE `runBlobUpload`, so the token is ready
-   * before the relay upload step.
-   */
-  async function consumeAndBuildToken(opts: {
-    relayHost: string
-    executor: GateExecutor
-    address: string
-    sign: PersonalMessageSigner
-  }): Promise<string> {
-    if (!gate) throw new Error('No access gate configured for this network.')
-    const currentNftId = nftId.value
-    if (!currentNftId) throw new Error('No access NFT held — purchase one first.')
-
-    // 1. Get a fresh challenge nonce from the gateway.
-    const challenge = await fetchChallenge(opts.relayHost)
-
-    // 2. Execute the on-chain consume transaction to record use of this nonce.
-    const consumeTx = buildConsumeTx(gate, currentNftId, challenge.nonce)
-    const res = await opts.executor.signAndExecute(consumeTx as Transaction)
-    if (!res.digest) throw new Error('The consume transaction returned no digest.')
-    // Best-effort wait: the gateway itself re-reads the consume transaction with a bounded
-    // retry, so an indexing delay here must not abort the upload — a genuinely failed consume is
-    // rejected by the gateway and surfaced by the upload step.
-    await opts.executor.waitForTransaction(res.digest).catch(() => {})
-
-    // 3. Optimistically update local uses so the UI reflects the spent use immediately
-    //    without waiting for a full checkOwnership round-trip.
-    if (usesRemaining.value !== null) {
-      usesRemaining.value = usesRemaining.value - 1
-      if (usesRemaining.value <= 0) {
-        hasAccess.value = false
-        nftId.value = null
-      }
-    }
-
-    // 4. Build and return the signed proof that includes the consume tx digest.
-    return buildAccessProof({
-      address: opts.address,
-      challenge,
-      sign: opts.sign,
-      consumeDigest: res.digest,
-    })
-  }
-
   return {
     gate,
     gateConfigured,
@@ -225,7 +144,5 @@ export function useAccessGate(deps: {
     reset,
     purchase,
     buildConsume,
-    buildRelayAccessToken,
-    consumeAndBuildToken,
   }
 }

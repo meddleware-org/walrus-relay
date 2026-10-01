@@ -12,20 +12,16 @@ import {
   CORE_UPLOAD_STEPS,
   GATED_UPLOAD_STEPS,
   isUploadProgress,
+} from '../lib/upload-steps.js'
+import {
+  getCertifyRetry,
+  getDuplicateExisting,
+  type BlobUploadResult as UploadResult,
+  type ExistingCopy,
   type UploadProgress,
   type UploadStepKey,
-} from '../lib/upload-steps.js'
-import { getCertifyRetry } from '../lib/certify-retry.js'
-import { getDuplicateExisting, type ExistingCopy } from '../lib/duplicate-existing.js'
+} from '@meddleware/walrus-client/flow'
 import { MAX_SINGLE_RESERVATION_EPOCHS, formatCoinAmount } from '../lib/relay.js'
-
-export interface UploadResult {
-  blobId: string
-  /** Aggregator URL that serves the raw bytes. */
-  url: string
-  /** Certify tx digest, when the app exposes it. */
-  digest?: string
-}
 
 const props = withDefaults(
   defineProps<{

@@ -6,8 +6,7 @@
 // stepped indicator). `detail` is the human sentence for the active step ("Registering blob
 // (approve in wallet)…"); `step` positions it on the stepper.
 
-/** Stable keys for each phase of an upload, in journey order. */
-export type UploadStepKey = 'access' | 'encode' | 'register' | 'upload' | 'certify'
+import type { UploadProgress, UploadStepKey } from '@meddleware/walrus-client/flow'
 
 export interface UploadStepDef {
   key: UploadStepKey
@@ -17,12 +16,6 @@ export interface UploadStepDef {
   signature?: boolean
 }
 
-/** Structured progress signal; preferred over a bare string so the widget can render a stepper. */
-export interface UploadProgress {
-  step: UploadStepKey
-  /** Optional sentence shown beneath the stepper for the active step. */
-  detail?: string
-}
 
 /** Core steps every upload performs (encode → register → upload → certify). */
 export const CORE_UPLOAD_STEPS: readonly UploadStepDef[] = [

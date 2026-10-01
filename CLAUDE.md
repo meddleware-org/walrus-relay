@@ -10,23 +10,23 @@ token-deployer app for image upload.
 **Package name history:** Previously published as `@meddleware/walrus-relay-ui`; renamed to
 `@meddleware/walrus-relay` v0.1.0 for consistency with the `walrus-relay` repo name.
 
-## Commission enforcement (hardcoded — do not change)
+## Commission enforcement (do not change)
 
-`src/constants.ts` hardcodes `ACCESS_GATE_PACKAGE_ID` and `ACCESS_GATE_PLATFORM_CONFIG_ID`
-for testnet and mainnet. These are the Meddleware-deployed `access_gate` Move package and
-`PlatformConfig` shared object. **They are intentionally hardcoded**: any operator who
-imports `@meddleware/walrus-relay` and uses the `useAccessGate` composable will automatically
-route through Meddleware's `PlatformConfig`, ensuring the on-chain 20 bps commission on
-every access NFT purchase routes to the Meddleware treasury.
+`relayGateConfig(network, { gateId, soulbound, priceMist })` builds every relay gate config.
+It takes the `access_gate` package and the `PlatformConfig` shared object from
+`@meddleware/access-gate-client/deployments`, generated from `access-gate-sui`'s published records.
+The caller cannot pass them in. Any operator who uses this library therefore routes through
+Meddleware's `PlatformConfig`, and the on-chain platform commission on every access NFT purchase
+goes to the Meddleware treasury.
 
 Do NOT:
-- Move these constants to env vars
-- Expose them as composable parameters that operators can override
-- Remove them
 
-Update them ONLY when the `access_gate` package is upgraded on-chain (requires re-publishing
-under the same address or a new one, in which case the CLAUDE.md of `access-gate-sui` will
-reflect the change).
+- move these ids to env vars;
+- add parameters that let operators override them;
+- copy them into this repo.
+
+They change only when `access-gate-sui` publishes a new deployment record. Bump
+`@meddleware/access-gate-client` to pick it up.
 
 ## Architectural invariants
 
@@ -35,9 +35,15 @@ reflect the change).
   `WalrusUpload`. This keeps the library free of wasm/wallet deps and preserves the
   lazy-load boundary — importing a widget never pulls the Walrus wasm chunk into the
   eager bundle.
-- **No wallet dependency.** The library is wallet-agnostic. Authentication flows
-  (`buildRelayAccessToken`, `purchase`) accept injected `PersonalMessageSigner` and
-  `GateExecutor` interfaces — apps wire in their wallet adapters.
+- **No wallet dependency.** The library is wallet-agnostic. `purchase` accepts an injected
+  `GateExecutor` and apps wire in their wallet adapters. Relay access for an upload (consume +
+  signed proof, resumable) is `createGatedAccess` in `@meddleware/walrus-client/flow`, fed this
+  composable's `buildConsume`.
+- **Upload conventions come from `@meddleware/walrus-client/flow`.** `UploadProgress`,
+  `UploadStepKey`, `BlobUploadResult`, `ExistingCopy`, `getCertifyRetry` and
+  `getDuplicateExisting` are defined there and imported here. The stepper catalogue
+  (`CORE_UPLOAD_STEPS`, `GATED_UPLOAD_STEPS`) is UI and stays here. Import only the `./flow`
+  subpath, never the walrus-client root, which pulls the wasm client.
 - **No build step.** Ships TypeScript source directly (resolved by the consuming app's
   bundler via `"exports": { ".": { "default": "./src/index.ts" } }`).
 - **Modals use `@meddleware/ui`'s `UiDialog`.** `WalrusUpload`'s blocking progress dialog is
@@ -76,7 +82,7 @@ token-deployer app's non-reactive utils).
 | `VITE_ACCESS_GATE_PRICE_MIST_{NET}` | Purchase price in MIST |
 | `VITE_UPLOAD_RELAY_MAX_TIP_MIST` | Max tip cap passed to `createWalrusClient` |
 
-`packageId` and `platformConfigId` are hardcoded — operators configure everything else.
+The package and `PlatformConfig` come from `relayGateConfig`. Operators configure everything else.
 
 ## Deferred: NFT picker for multi-NFT wallets
 
@@ -96,7 +102,7 @@ the gateway verifies the consume event, not the purchase count.
 ## What NOT to do
 
 - Do not add a `configurePackageId()` function or any API that lets operators override
-  the hardcoded commission routing constants.
+  the commission-routing ids `relayGateConfig` takes from `deployments`.
 - Do not import `@mysten/walrus` — the Walrus client is app-injected via `performUpload`.
 - Do not add wallet-standard imports — stay wallet-agnostic.
 - Do not add a build step — the package ships source for consumers to bundle.

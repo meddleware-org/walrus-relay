@@ -7,7 +7,6 @@
 // standalone relay app and the token-deployer share one implementation.
 
 export { default as WalrusUpload } from './components/WalrusUpload.vue'
-export type { UploadResult } from './components/WalrusUpload.vue'
 export { default as TipConfigBadge } from './components/TipConfigBadge.vue'
 export { default as AccessGateCta } from './components/AccessGateCta.vue'
 
@@ -24,7 +23,6 @@ export type {
   GateExecutor,
   AccessGateConfig,
   OwnedObjectsClient,
-  PersonalMessageSigner,
 } from './composables/useAccessGate.js'
 
 export {
@@ -41,21 +39,14 @@ export {
 } from './lib/relay.js'
 export type { RelayHealth, RelayTipConfig, WalrusNetwork } from './lib/relay.js'
 
-export {
-  ACCESS_GATE_PACKAGE_ID,
-  ACCESS_GATE_PLATFORM_CONFIG_ID,
-  accessGateNftType,
-} from './constants.js'
+export { relayGateConfig } from './constants.js'
+export type { RelayGateInput } from './constants.js'
 
 export {
   CORE_UPLOAD_STEPS,
   GATED_UPLOAD_STEPS,
   isUploadProgress,
 } from './lib/upload-steps.js'
-export type { UploadStepKey, UploadStepDef, UploadProgress } from './lib/upload-steps.js'
-
-export { attachCertifyRetry, getCertifyRetry } from './lib/certify-retry.js'
-export type { CertifyRetryable } from './lib/certify-retry.js'
-
-export { attachDuplicateExisting, getDuplicateExisting } from './lib/duplicate-existing.js'
-export type { ExistingCopy, DuplicateExistingError } from './lib/duplicate-existing.js'
+export type { UploadStepDef } from './lib/upload-steps.js'
+// The upload conventions (progress, result, certify retry, existing copy) live in
+// `@meddleware/walrus-client/flow`; import them from there.

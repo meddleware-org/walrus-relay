@@ -2,7 +2,7 @@
 // ownership check against the localnet access_gate deployment. Gated by WALRUS_LOCALNET — the suite
 // skips when ../walrus-client/localnet/.env.localnet has not been sourced, so `npm test` stays green.
 import { describe, it, expect } from 'vitest'
-import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc'
+import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { probeRelay } from '../../src/lib/relay.js'
 import { useAccessGate, type RelayGateConfig } from '../../src/composables/useAccessGate.js'
 
@@ -22,6 +22,8 @@ const GATE_READY =
 
 describe.skipIf(!GATE_READY)('walrus-relay localnet access gate', () => {
   it('checkOwnership resolves against the localnet gate without throwing', async () => {
+    // Localnet has no recorded deployment (relayGateConfig covers testnet/mainnet), so the gate is
+    // built from the localnet bootstrap's env.
     const pkg = process.env.ACCESS_GATE_PACKAGE_ID!
     const gate: RelayGateConfig = {
       packageId: pkg,
@@ -30,12 +32,12 @@ describe.skipIf(!GATE_READY)('walrus-relay localnet access gate', () => {
       nftType: `${pkg}::access_gate::AccessNFT`,
       priceMist: 0n,
     }
-    const rpc = new SuiJsonRpcClient({ url: process.env.WALRUS_RPC_URL! })
+    const rpc = new SuiGrpcClient({ network: 'localnet', baseUrl: process.env.WALRUS_RPC_URL! })
     const { checkOwnership, hasAccess, error } = useAccessGate({ gate, getClient: () => rpc })
 
     await checkOwnership(process.env.WALRUS_TEST_ADDRESS!)
     // The funded test address holds no pass yet, so access is a resolved boolean (false), not an
-    // error — this exercises the real localnet getOwnedObjects + nft-gate-client filter path.
+    // error — this exercises the real localnet listOwnedObjects + access-gate-client exact-type path.
     expect(error.value).toBeNull()
     expect(hasAccess.value).toBe(false)
   })
