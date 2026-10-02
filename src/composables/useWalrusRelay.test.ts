@@ -42,7 +42,7 @@ describe('useWalrusRelay availableRelays policy (anti-bypass)', () => {
     r.operatorRelayAccessible.value = true
 
     expect(r.availableRelays.value).toHaveLength(1)
-    expect(r.availableRelays.value[0].isPublic).toBe(true)
+    expect(r.availableRelays.value[0]!.isPublic).toBe(true)
   })
 
   it('no gate configured ⇒ operator relay offered when reachable', async () => {

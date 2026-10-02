@@ -145,9 +145,10 @@ export function useWalrusRelay(hosts: WalrusRelayHosts, access: RelayAccessOptio
   // available (gated + unpaid) leave the selection as-is — upload is blocked by the caller.
   const ensureValidSelection = () => {
     const available = availableRelays.value.map((r) => r.host)
-    if (available.length === 0) return
+    const first = available[0]
+    if (first === undefined) return
     if (!available.includes(selectedRelayHost.value)) {
-      selectedRelayHost.value = available[0]
+      selectedRelayHost.value = first
     }
   }
   watch(availableRelays, ensureValidSelection, { immediate: true })

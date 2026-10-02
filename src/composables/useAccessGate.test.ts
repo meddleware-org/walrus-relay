@@ -48,3 +48,54 @@ describe('useAccessGate wallet switching', () => {
     expect(g.nftId.value).toBeNull()
   })
 })
+
+describe('useAccessGate purchase', () => {
+  const executor = () => ({
+    signAndExecute: vi.fn(async () => ({ digest: 'BUY1' })),
+    waitForTransaction: vi.fn(async () => undefined),
+  })
+
+  it('never buys a second pass while the first is still being indexed', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchAccessNfts.mockResolvedValue([]) // the new pass is not visible yet
+      const g = useAccessGate({ gate: gate as never, getClient: () => ({}) as never })
+      const ex = executor()
+      const first = g.purchase(ex, '0xalice')
+      await vi.advanceTimersByTimeAsync(10_000)
+      await first
+      expect(ex.signAndExecute).toHaveBeenCalledTimes(1)
+      expect(g.pendingPurchase.value?.digest).toBe('BUY1')
+
+      // The user clicks buy again: it re-checks and refuses instead of buying.
+      await expect(g.purchase(ex, '0xalice')).rejects.toThrow(/BUY1.*not visible yet/)
+      expect(ex.signAndExecute).toHaveBeenCalledTimes(1)
+
+      // Once the pass appears, the pending purchase clears and access is granted.
+      fetchAccessNfts.mockResolvedValue([{ objectId: '0xnft', gateId: '0xgate', usesRemaining: null }])
+      await g.purchase(ex, '0xalice')
+      expect(g.hasAccess.value).toBe(true)
+      expect(g.pendingPurchase.value).toBeNull()
+      expect(ex.signAndExecute).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+      fetchAccessNfts.mockReset()
+    }
+  })
+
+  it('a wallet switch clears a pending purchase', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchAccessNfts.mockResolvedValue([])
+      const g = useAccessGate({ gate: gate as never, getClient: () => ({}) as never })
+      const p = g.purchase(executor(), '0xalice')
+      await vi.advanceTimersByTimeAsync(10_000)
+      await p
+      g.reset()
+      expect(g.pendingPurchase.value).toBeNull()
+    } finally {
+      vi.useRealTimers()
+      fetchAccessNfts.mockReset()
+    }
+  })
+})

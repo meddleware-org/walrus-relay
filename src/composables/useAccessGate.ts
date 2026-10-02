@@ -34,6 +34,9 @@ export interface GateExecutor {
  * `createGatedAccess` from `@meddleware/walrus-client/flow`, given this composable's
  * `buildConsume`.
  */
+/** How long a submitted-but-not-yet-visible purchase blocks buying again (2 minutes). */
+export const PENDING_PURCHASE_MS = 120_000
+
 export function useAccessGate(deps: {
   gate: RelayGateConfig | null
   getClient: () => OwnedObjectsClient
@@ -48,6 +51,11 @@ export function useAccessGate(deps: {
   const nftId = ref<string | null>(null)
   const checking = ref(false)
   const error = ref<string | null>(null)
+  /**
+   * A purchase that executed but whose pass is not visible yet (indexing). While it is set,
+   * `purchase()` re-checks instead of buying again, so a slow index never costs a second pass.
+   */
+  const pendingPurchase = ref<{ digest: string; at: number } | null>(null)
   /** Bumped on every reset/new check so a response for a previous wallet is discarded. */
   let generation = 0
 
@@ -62,6 +70,7 @@ export function useAccessGate(deps: {
     nftId.value = null
     error.value = null
     checking.value = false
+    pendingPurchase.value = null
   }
 
   /** Query whether `address` holds the gate NFT. Cheap; safe to call on connect. */
@@ -86,9 +95,11 @@ export function useAccessGate(deps: {
           const ub = b.usesRemaining ?? Infinity
           return ua - ub
         })
-      hasAccess.value = valid.length > 0
-      usesRemaining.value = valid.length ? valid[0].usesRemaining : null
-      nftId.value = valid.length ? valid[0].objectId : null
+      const best = valid[0]
+      hasAccess.value = best !== undefined
+      usesRemaining.value = best ? best.usesRemaining : null
+      nftId.value = best ? best.objectId : null
+      if (best) pendingPurchase.value = null
     } catch (e) {
       if (mine !== generation) return
       // A failed check must NOT hard-block the user: leave access false but keep the
@@ -104,8 +115,19 @@ export function useAccessGate(deps: {
   /** Purchase access via the connected wallet, then re-check ownership. */
   async function purchase(executor: GateExecutor, address: string): Promise<void> {
     if (!gate) throw new Error('No access gate configured for this network.')
+    const pending = pendingPurchase.value
+    if (pending && Date.now() - pending.at < PENDING_PURCHASE_MS) {
+      await checkOwnership(address)
+      if (hasAccess.value === true) return
+      throw new Error(
+        `Your purchase (transaction ${pending.digest}) went through but the pass is not visible yet. ` +
+          'Check again in a moment instead of buying another pass.',
+      )
+    }
     const tx = buildPurchaseTx(gate, gate.priceMist)
     const res = await executor.signAndExecute(tx)
+    // The executor throws for a failed transaction, so a digest here means the purchase executed.
+    if (res.digest) pendingPurchase.value = { digest: res.digest, at: Date.now() }
     let waitError: unknown
     if (res.digest) {
       try {
@@ -138,6 +160,7 @@ export function useAccessGate(deps: {
     nftId,
     checking,
     error,
+    pendingPurchase,
     /** Convenience: gate configured AND access confirmed. */
     accessGranted: computed(() => !gateConfigured || hasAccess.value === true),
     checkOwnership,
