@@ -30,6 +30,12 @@ They change only when `access-gate-sui` publishes a new deployment record. Bump
 
 ## Architectural invariants
 
+- **No on-chain logic here — extend the domain client.** `suiBoundary()` from
+  `@meddleware/eslint-config` (the last entry in `eslint.config.ts`) forbids, in `src/` outside
+  `src/wallet.ts`: value imports of `@mysten/sui/{grpc,client,transactions}` (type-only imports are
+  fine; `@mysten/sui/jsonRpc` is banned outright), building transactions and chain reads. URL
+  bindings on native elements must go through `safeHref`, `safeIcon`, `suiExplorerUrl` or
+  `walruscanBlobUrl`. Do not disable it — move the logic into the domain client instead.
 - **No `@mysten/walrus` import.** This library must never import the Walrus wasm client
   directly. The Walrus upload flow is app-injected via the `performUpload` prop on
   `WalrusUpload`. This keeps the library free of wasm/wallet deps and preserves the

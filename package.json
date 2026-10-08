@@ -43,6 +43,7 @@
     "@meddleware/walrus-client": "^0.0.25"
   },
   "devDependencies": {
+    "@meddleware/eslint-config": "^0.0.1",
     "@mysten/sui": "^2.33.1",
     "@types/node": "~24.12.2",
     "@vitejs/plugin-vue": "^6.0.9",
