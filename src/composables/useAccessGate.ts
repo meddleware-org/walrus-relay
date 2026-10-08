@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import type { Transaction } from '@mysten/sui/transactions'
-import { fetchAccessNfts, buildPurchaseTx, buildConsumeTx } from '@meddleware/access-gate-client'
-import type { AccessGateConfig, OwnedObjectsClient } from '@meddleware/access-gate-client'
+import { fetchAccessNfts, buildPurchaseTx, buildConsumeTx, isUsablePass } from '@meddleware/access-gate-client'
+import type { AccessGateConfig, OwnedObjectsClient, PassVariant } from '@meddleware/access-gate-client'
 
 export type { AccessGateConfig, OwnedObjectsClient }
 
@@ -46,7 +46,12 @@ export function useAccessGate(deps: {
 
   // No gate → open. Gate → unknown until checked.
   const hasAccess = ref<boolean | null>(gateConfigured ? null : true)
-  const usesRemaining = ref<number | null>(null)
+  /** The held pass's variant (unlimited, or single-use with a remaining count); null if none. */
+  const variant = ref<PassVariant | null>(null)
+  /** Uses left on a single-use pass (exact, a bigint); null for an unlimited pass or no pass. */
+  const usesRemaining = computed(() => (variant.value?.kind === 'singleUse' ? variant.value.remaining : null))
+  /** True when the held pass spends one use per upload (an unlimited pass only signs). */
+  const singleUse = computed(() => variant.value?.kind === 'singleUse')
   /** Object id of the held access NFT (for the single-use consume step); null if none. */
   const nftId = ref<string | null>(null)
   const checking = ref(false)
@@ -66,7 +71,7 @@ export function useAccessGate(deps: {
   function reset(): void {
     generation++
     hasAccess.value = gateConfigured ? null : true
-    usesRemaining.value = null
+    variant.value = null
     nftId.value = null
     error.value = null
     checking.value = false
@@ -85,19 +90,21 @@ export function useAccessGate(deps: {
     try {
       const nfts = await fetchAccessNfts(deps.getClient(), address, gate.nftType, gate.gateId)
       if (mine !== generation) return // stale: the wallet changed while this check was in flight
-      // Filter out exhausted NFTs (usesRemaining = 0). Unlimited passes have usesRemaining = null.
-      // Sort ascending so the most-depleted NFT is consumed first (minimises stranded partial uses).
-      // Unlimited passes sort last (treated as Infinity).
-      const valid = nfts
-        .filter((n) => n.usesRemaining === null || n.usesRemaining > 0)
-        .sort((a, b) => {
-          const ua = a.usesRemaining ?? Infinity
-          const ub = b.usesRemaining ?? Infinity
-          return ua - ub
-        })
+      // Keep only usable passes (unlimited, or single-use with uses left); an exhausted receipt is
+      // not access. Sort so the most-depleted single-use pass is consumed first (minimises stranded
+      // partial uses); unlimited passes sort last.
+      const remainingOf = (n: (typeof nfts)[number]): bigint | null => (n.variant.kind === 'singleUse' ? n.variant.remaining : null)
+      const valid = nfts.filter(isUsablePass).sort((a, b) => {
+        const ra = remainingOf(a)
+        const rb = remainingOf(b)
+        if (ra === rb) return 0
+        if (ra === null) return 1
+        if (rb === null) return -1
+        return ra < rb ? -1 : 1
+      })
       const best = valid[0]
       hasAccess.value = best !== undefined
-      usesRemaining.value = best ? best.usesRemaining : null
+      variant.value = best ? best.variant : null
       nftId.value = best ? best.objectId : null
       if (best) pendingPurchase.value = null
     } catch (e) {
@@ -157,6 +164,7 @@ export function useAccessGate(deps: {
     gateConfigured,
     hasAccess,
     usesRemaining,
+    singleUse,
     nftId,
     checking,
     error,

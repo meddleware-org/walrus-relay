@@ -96,7 +96,7 @@ The package and `PlatformConfig` come from `relayGateConfig`. Operators configur
 first). This is the right default when users hold at most one valid NFT per gate.
 
 When multi-NFT wallets become common (e.g. users bulk-buying upload capacity), a picker UI
-should be added so the user can see all held NFTs for the current gate (objectId, usesRemaining)
+should be added so the user can see all held NFTs for the current gate (objectId, variant)
 and explicitly select which one to consume. The composable already surfaces `nftId` reactively;
 extending it to `nftIds: Ref<string[]>` and wiring a selection UI in `WalrusView.vue` is the
 implementation path. Until then, auto-selection is intentional.
