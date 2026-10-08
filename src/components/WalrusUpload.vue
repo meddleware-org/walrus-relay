@@ -15,6 +15,7 @@ import {
 } from '../lib/upload-steps.js'
 import {
   getCertifyRetry,
+  getUploadRetry,
   getDuplicateExisting,
   type BlobUploadResult as UploadResult,
   type ExistingCopy,
@@ -140,6 +141,12 @@ const duplicate = ref<ExistingCopy | null>(null)
 const pendingCertify = ref<(() => Promise<UploadResult>) | null>(null)
 const certifying = ref(false)
 
+// When the relay upload fails after the blob was registered (and paid for), the app attaches an
+// upload-retry closure to the error. The registration is still good for a while, so one click retries
+// the upload on it with a fresh access proof, without paying to register again.
+const pendingUpload = ref<(() => Promise<UploadResult>) | null>(null)
+const retryingUpload = ref(false)
+
 // Stepped-progress state. `activeStep` is set only when the app reports structured progress; if it
 // stays null (a legacy string-only caller), the modal falls back to the single status line.
 const activeStep = ref<UploadStepKey | null>(null)
@@ -198,6 +205,7 @@ const uploadStep = ref(0)
 function onFile(e: Event): void {
   error.value = null
   pendingCertify.value = null
+  pendingUpload.value = null
   duplicate.value = null
   bytes = null
   fileName.value = ''
@@ -227,6 +235,7 @@ async function upload(force = false): Promise<void> {
   activeStep.value = null
   sawAccessStep.value = false
   pendingCertify.value = null
+  pendingUpload.value = null
   duplicate.value = null
   try {
     const result = await props.performUpload(bytes, {
@@ -248,8 +257,12 @@ async function upload(force = false): Promise<void> {
     // If the upload landed but only certify failed, offer a retry instead of a hard error — the
     // blob is already stored and paid for; certifying it later costs only the certify gas.
     const retry = getCertifyRetry<UploadResult>(e)
+    const uploadRetry = getUploadRetry<UploadResult>(e)
     if (retry) {
       pendingCertify.value = retry
+    } else if (uploadRetry) {
+      pendingUpload.value = uploadRetry
+      error.value = e instanceof Error ? e.message : String(e)
     } else {
       error.value = e instanceof Error ? e.message : String(e)
     }
@@ -259,6 +272,35 @@ async function upload(force = false): Promise<void> {
     status.value = ''
     activeStep.value = null
     uploading.value = false
+    emit('settled')
+  }
+}
+
+/**
+ * Retry the relay upload on the registration that is already paid for (a fresh access proof is
+ * minted inside the app's closure). Keeps the retry available if it fails again.
+ */
+async function runPendingUpload(): Promise<void> {
+  const retry = pendingUpload.value
+  if (!retry || retryingUpload.value) return
+  retryingUpload.value = true
+  error.value = null
+  try {
+    const result = await retry()
+    pendingUpload.value = null
+    emit('uploaded', result)
+  } catch (e) {
+    const next = getUploadRetry<UploadResult>(e)
+    const certify = getCertifyRetry<UploadResult>(e)
+    if (certify) {
+      pendingUpload.value = null
+      pendingCertify.value = certify
+    } else {
+      pendingUpload.value = next
+      error.value = e instanceof Error ? e.message : String(e)
+    }
+  } finally {
+    retryingUpload.value = false
     emit('settled')
   }
 }
@@ -380,6 +422,19 @@ async function runPendingCertify(): Promise<void> {
           A permanent blob cannot be deleted by anyone — including you — before it expires. Untick to
           store it as deletable, so you can remove it early and reclaim the unused storage.
         </p>
+      </div>
+
+      <!-- The relay upload failed after the blob was registered and paid for. Retrying uses that
+           registration (no second storage fee, tip or registration gas). -->
+      <div v-if="pendingUpload" class="wru-certify" role="status">
+        <p class="wru-certify__msg">
+          Your blob is registered and paid for, but the upload to the relay did not complete. Retry
+          the upload on the same registration — no second payment.
+        </p>
+        <button type="button" :disabled="retryingUpload" @click="runPendingUpload">
+          <span v-if="retryingUpload" class="wru-spinner" aria-hidden="true"></span>
+          {{ retryingUpload ? 'Retrying…' : 'Retry upload' }}
+        </button>
       </div>
 
       <p v-if="error" class="wru-error" role="alert">{{ error }}</p>
