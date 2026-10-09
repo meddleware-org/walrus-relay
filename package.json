@@ -1,6 +1,6 @@
 {
   "name": "@meddleware/walrus-relay",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "description": "Shared Vue 3 UI for the Walrus upload relay: relay selection + tip estimation, NFT-gate access, and a blob-upload widget. Built on @meddleware/walrus-client + @meddleware/nft-gate-client.",
   "author": "Meddleware <dev@meddleware.co.uk>",
   "license": "0BSD",
@@ -38,13 +38,13 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@meddleware/access-gate-client": "^0.0.6",
-    "@meddleware/design-tokens": "^0.1.8",
-    "@meddleware/ui": "^0.1.30",
+    "@meddleware/access-gate-client": "^0.0.8",
+    "@meddleware/design-tokens": "^0.1.9",
+    "@meddleware/ui": "^0.1.31",
     "@meddleware/walrus-client": "^0.0.26"
   },
   "devDependencies": {
-    "@meddleware/eslint-config": "^0.0.1",
+    "@meddleware/eslint-config": "^0.0.2",
     "@mysten/sui": "^2.33.2",
     "@mysten/walrus": "~1.2.32",
     "@types/node": "~24.12.2",
