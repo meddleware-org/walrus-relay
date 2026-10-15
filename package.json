@@ -38,10 +38,10 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@meddleware/access-gate-client": "^0.0.8",
+    "@meddleware/access-gate-client": "^0.0.9",
     "@meddleware/design-tokens": "^0.1.9",
     "@meddleware/ui": "^0.1.31",
-    "@meddleware/walrus-client": "^0.0.27"
+    "@meddleware/walrus-client": "^0.0.28"
   },
   "devDependencies": {
     "@meddleware/eslint-config": "^0.0.2",
