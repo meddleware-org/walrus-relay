@@ -27,13 +27,15 @@ RUST, SITE, PLATFORM.
 
 **Deployment status:**
 
-- Published: npm `@meddleware/walrus-relay` **0.1.30**, from tag `v0.1.30` = `e57b06e`, with an SLSA v1
-  provenance attestation (`npm view` shows it for 0.1.27 to 0.1.30).
-- Fix wave 2026-10-10: **0.1.31** (local, commit `24d7c43`, not yet tagged or published) fixes F9–F14, F16, F17
+- Published: npm `@meddleware/walrus-relay` **0.1.31** (`latest`, published 2026-10-18T09:00Z), from tag
+  `v0.1.31` = `2cf8b18` (code in `24d7c43` and the version-bump commit `4aa217d`; the two commits after it touch only this audit), with
+  an SLSA v1 provenance attestation (`dist.attestations`, checked 2026-10-18). 0.1.30 (tag `v0.1.30` =
+  `e57b06e`, attested like 0.1.27 to 0.1.29) was the version of the 2026-10-09 pass.
+- Fix wave 2026-10-10, released as **0.1.31** on 2026-10-18: fixes F9–F14, F16, F17
   (except the integration refs), F21–F23 and the open Section D code gates. It is breaking for the consumers
   (pre-v0.2: patch bump): `useAccessGate` takes `network`, the price is no longer configured, `AccessGateCta`
-  takes `terms`; walrus-ui and token-deployer-ui need a matching bump.
-- Consumers, at `^0.1.30`:
+  takes `terms`; walrus-ui and token-deployer-ui have the matching bump.
+- Consumers, at `^0.1.31` (bumped 2026-10-18; both lockfiles resolve 0.1.31; `^0.1.30` before):
   - walrus-ui: `WalrusView`, gate config via `relayGateConfig`;
   - token-deployer-ui: `IconPicker`;
   - the dashboard, through both.
@@ -48,7 +50,7 @@ RUST, SITE, PLATFORM.
   consumed, `nft-gate:access:v2` proof, upload through the Worker). The proof is built by
   walrus-client and nft-gate-client, not by this library.
 
-**Review date:** 2026-09-18 (first pass, corpus) · **re-verified 2026-10-03** · **re-verified 2026-10-09** · **fix wave 2026-10-10**
+**Review date:** 2026-09-18 (first pass, corpus) · **re-verified 2026-10-03** · **re-verified 2026-10-09** · **fix wave 2026-10-10** · **release status 2026-10-18**
 **Reviewer:** Internal review
 **Severity ceiling:** Medium.
 
@@ -59,7 +61,7 @@ RUST, SITE, PLATFORM.
   resolved, and no open finding exceeds Info.
 
 **Status:** third pass re-verified 2026-10-09 at `e57b06e` (tag `v0.1.30`); fix wave 2026-10-10 on top of it
-(0.1.31, commit `24d7c43`).
+(0.1.31, commit `24d7c43`), released 2026-10-18 and consumed by walrus-ui and token-deployer-ui at `^0.1.31`.
 
 - The first pass (corpus file `walrus-relay-audit.md`, 2026-09-18) covered npm 0.1.12, predates the
   lens templates, and described constants and dependencies that no longer exist.
@@ -785,7 +787,7 @@ because executors and the chain check fail closed (VUE-M6).
 - **Supply chain:**
   - an audit gate with a validated, **expiring** allowlist (one dev-only advisory, expires
     2027-01-01);
-  - SHA-pinned actions; OIDC provenance (0.1.27 to 0.1.30 verified); tag == version; idempotent
+  - SHA-pinned actions; OIDC provenance (0.1.27 to 0.1.31 verified); tag == version; idempotent
     publish; Dependabot (weekly, grouped).
 
 ### F19 — Chain-access boundary enforced by lint (new 2026-10-09)
@@ -977,7 +979,7 @@ production tree is clean.
 | --- | --- | --- |
 | Actions pinned | Yes | SHA pins in all three workflows |
 | Least privilege | Yes | `contents: read`; `id-token: write` only on `publish-npm` |
-| OIDC trusted publishing | Yes | SLSA v1 attestation on 0.1.27 to 0.1.30 |
+| OIDC trusted publishing | Yes | SLSA v1 attestation on 0.1.27 to 0.1.31 (0.1.31 checked 2026-10-18) |
 | Tag-gated, idempotent publish | Yes | `v*`; tag == version |
 | Audit gate with expiring exceptions | Yes | `.github/audit-gate.mjs` + allowlist (`reason`, `expires` validated) |
 | Lint and the contrast gate in publish verification | Yes | `npm-publish.yml` `verify` (F17, F21; 0.1.31) |
@@ -1066,7 +1068,7 @@ production tree is clean.
 - [x] unknown use counts treated as unusable (F15: pass `variant`, `isUsablePass`, 0.1.27)
 - [x] chain-access boundary enforced by lint (F19, 0.1.27) and the paid-upload retry on the same
   registration (F20, 0.1.28)
-- [x] provenance on every release (0.1.27 to 0.1.30) and Dependabot on (`fdbec17`)
+- [x] provenance on every release (0.1.27 to 0.1.31; 0.1.31 re-checked 2026-10-18) and Dependabot on (`fdbec17`)
 - [x] gate-config pinning enforced at `useAccessGate` (F10, OQ7 answered) — 0.1.31, commit `24d7c43`:
   `assertPinnedGate`, `tests/constants.test.ts`, `tests/useAccessGate.test.ts`
 - [x] operator and public host validation at construction (F12) — 0.1.31, commit `24d7c43`: `useWalrusRelay`
@@ -1324,6 +1326,13 @@ production tree is clean.
   - **Consumers must follow (breaking, pre-v0.2 patch):** walrus-ui and token-deployer-ui pass `network` to
     `useAccessGate`, drop `priceMist` from `relayGateConfig` and the prompt, pass `terms` / `termsError` /
     `purchaseError` to `AccessGateCta`, pass `sessionKey`, and show `purchaseError`.
+- **2026-10-18** — released (0.1.31), consumers bumped (walrus-ui and token-deployer-ui: `^0.1.31`, lockfiles resolve
+  0.1.31). `npm view` shows `@meddleware/walrus-relay` 0.1.31 as `latest`, published 2026-10-18T09:00Z, with SLSA v1
+  provenance (`dist.attestations`); tag `v0.1.31` = `2cf8b18` (code `24d7c43` + `4aa217d`). The "orchestrator fills in the hash, tags and
+  publishes" and "consumers must follow" items of the 2026-10-10 entry are done. Its remaining dependency ranges: walrus-client
+  `^0.0.28`, access-gate-client `^0.0.9`, design-tokens `^0.1.10`, ui `^0.1.31`; eslint-config is still `^0.0.2` (0.0.3 is out).
+  Still open: the unpinned integration refs (F17), OQ9, the mainnet deployment and the external review. No Section D box waited
+  only on the release.
 
 ## Pre-save consistency checklist (this pass)
 
