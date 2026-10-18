@@ -10,19 +10,22 @@ export { default as WalrusUpload } from './components/WalrusUpload.vue'
 export { default as TipConfigBadge } from './components/TipConfigBadge.vue'
 export { default as AccessGateCta } from './components/AccessGateCta.vue'
 
-export { useWalrusRelay } from './composables/useWalrusRelay.js'
+export { useWalrusRelay, HEALTH_RECHECK_DELAYS_MS } from './composables/useWalrusRelay.js'
 export type {
   WalrusRelayHosts,
   RelayAccessOptions,
   RelayOption,
 } from './composables/useWalrusRelay.js'
 
-export { useAccessGate } from './composables/useAccessGate.js'
+export { useAccessGate, PENDING_PURCHASE_MS } from './composables/useAccessGate.js'
 export type {
   RelayGateConfig,
   GateExecutor,
   AccessGateConfig,
+  GateClient,
   OwnedObjectsClient,
+  PurchaseTerms,
+  SuiObjectClient,
 } from './composables/useAccessGate.js'
 
 export {
@@ -31,15 +34,22 @@ export {
   estimateTipMist,
   approxEncodedBytes,
   MAX_TIP_MIST,
+  MAX_TIP_CONFIG_BYTES,
+  describeTip,
+  fetchTipConfig,
+  readBoundedJson,
   probeRelay,
+  requireHttpsHost,
+  relayOrigin,
   walrusBlobUrl,
   formatCoinAmount,
+  formatCoinExact,
   WALRUS_AGGREGATOR_HOSTS,
   MAX_SINGLE_RESERVATION_EPOCHS,
 } from './lib/relay.js'
-export type { RelayHealth, RelayTipConfig, WalrusNetwork } from './lib/relay.js'
+export type { RelayHealth, RelayTipConfig, TipStatus, WalrusNetwork } from './lib/relay.js'
 
-export { relayGateConfig } from './constants.js'
+export { relayGateConfig, assertPinnedGate } from './constants.js'
 export type { RelayGateInput } from './constants.js'
 
 export {

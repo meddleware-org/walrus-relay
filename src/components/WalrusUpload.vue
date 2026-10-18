@@ -30,8 +30,15 @@ const props = withDefaults(
     hosts: WalrusRelayHosts
     /** Whether a wallet is connected (gates the upload button). */
     connected: boolean
-    /** Optional NFT-gate wiring (from `useAccessGate`). */
+    /** Optional NFT-gate wiring (from `useAccessGate`). Read live, so it may change with the network. */
     access?: RelayAccessOptions
+    /**
+     * Identifies the wallet session, for example `${network}:${address}`. When it changes (another
+     * account or network), the chosen file and any held retry (certify or upload) are discarded, and
+     * an upload still in flight no longer reports its result. Pass it whenever the account or network
+     * can change without the widget being re-mounted.
+     */
+    sessionKey?: string | null
     /** File input accept filter. Default: any file. */
     accept?: string
     /** Optional UX-only size guard in bytes (the authoritative cap is the relay edge). */
@@ -79,10 +86,22 @@ const emit = defineEmits<{
 /** Upper bound on a single reservation (Walrus `max_epochs_ahead`). */
 const maxUploadEpochs = MAX_SINGLE_RESERVATION_EPOCHS
 
-const { selectedRelayHost, availableRelays, relayPending, estimatedCost, fileSizeBytes, checkOperatorRelayHealth } =
-  useWalrusRelay(props.hosts, props.access)
+const {
+  selectedRelayHost,
+  availableRelays,
+  relayPending,
+  estimatedCost,
+  relayFeeStatus,
+  fileSizeBytes,
+  configError,
+  checkOperatorRelayHealth,
+} = useWalrusRelay(() => props.hosts, () => props.access)
 
 const uploading = ref(false)
+// Bumped whenever the wallet session changes (account, network or relay hosts) or the wallet
+// disconnects. An upload or retry that finishes under an older epoch belongs to the previous
+// session: its result and its held closures are dropped, never shown to the new one.
+let sessionEpoch = 0
 const status = ref('')
 const error = ref<string | null>(null)
 const fileName = ref('')
@@ -127,8 +146,23 @@ const costLine = computed<string | null>(() => {
   if (storage !== null) {
     parts.push(`~${formatCoinAmount(storage, 'WAL')} storage (${uploadEpochs.value} epochs)`)
   }
-  if (relay) parts.push(`~${formatCoinAmount(relay.mist, 'SUI')} relay fee`)
+  if (relay) parts.push(relay.mist === 0n ? 'no relay fee' : `~${formatCoinAmount(relay.mist, 'SUI')} relay fee`)
+  else if (fileSizeBytes.value > 0 && (relayFeeStatus.value === 'unknown' || relayFeeStatus.value === 'over-ceiling')) {
+    // An unreadable or out-of-range tip is not a free relay: say so instead of leaving it out.
+    parts.push(relayFeeStatus.value === 'unknown' ? 'relay fee unknown' : 'relay fee above the safety limit')
+  }
   return parts.length ? `Estimated cost: ${parts.join(' + ')} (+ gas)` : null
+})
+
+/** How many wallet approvals an upload through the selected relay needs, in words. */
+const approvalsHint = computed(() => {
+  const selected = availableRelays.value.find((r) => r.host === selectedRelayHost.value)
+  const gated = (props.access.gateConfigured ?? false) && !selected?.isPublic
+  if (!gated) return 'two wallet approvals (blob registration, blob certification)'
+  const single = props.access.singleUse?.value
+  if (single === true) return 'four wallet approvals (spend a pass use, prove access, blob registration, blob certification)'
+  if (single === false) return 'three wallet approvals (prove access, blob registration, blob certification)'
+  return 'three or four wallet approvals (spend a pass use if your pass is single-use, prove access, blob registration, blob certification)'
 })
 
 // An existing owned copy of the file the user is trying to upload (from the app's precheck). When
@@ -202,6 +236,33 @@ const UPLOAD_STEPS: StepperStep[] = [
 ]
 const uploadStep = ref(0)
 
+/** Forget the chosen file and every held retry: they were made for another account, network or relay. */
+function resetSession(): void {
+  sessionEpoch++
+  error.value = null
+  pendingCertify.value = null
+  pendingUpload.value = null
+  duplicate.value = null
+  bytes = null
+  fileName.value = ''
+  fileSizeBytes.value = 0
+  sawAccessStep.value = false
+  activeStep.value = null
+  uploadStep.value = 0
+}
+watch(
+  () => [props.sessionKey ?? null, props.hosts.operator, props.hosts.public] as const,
+  (now, before) => {
+    if (now.some((v, i) => v !== before[i])) resetSession()
+  },
+)
+watch(
+  () => props.connected,
+  (isConnected) => {
+    if (!isConnected) resetSession()
+  },
+)
+
 function onFile(e: Event): void {
   error.value = null
   pendingCertify.value = null
@@ -237,6 +298,7 @@ async function upload(force = false): Promise<void> {
   pendingCertify.value = null
   pendingUpload.value = null
   duplicate.value = null
+  const epoch = sessionEpoch
   try {
     const result = await props.performUpload(bytes, {
       relayHost: selectedRelayHost.value,
@@ -245,8 +307,9 @@ async function upload(force = false): Promise<void> {
       deletable: !permanent.value,
       onStatus: onProgress,
     })
-    emit('uploaded', result)
+    if (epoch === sessionEpoch) emit('uploaded', result)
   } catch (e) {
+    if (epoch !== sessionEpoch) return // the wallet session changed: this outcome is not for the new one
     // The app aborted before registering because the wallet already owns this blob: offer to manage
     // the existing copy (Extend / Certify) instead of paying to upload a duplicate.
     const existing = getDuplicateExisting(e)
@@ -285,11 +348,14 @@ async function runPendingUpload(): Promise<void> {
   if (!retry || retryingUpload.value) return
   retryingUpload.value = true
   error.value = null
+  const epoch = sessionEpoch
   try {
     const result = await retry()
+    if (epoch !== sessionEpoch) return
     pendingUpload.value = null
     emit('uploaded', result)
   } catch (e) {
+    if (epoch !== sessionEpoch) return
     const next = getUploadRetry<UploadResult>(e)
     const certify = getCertifyRetry<UploadResult>(e)
     if (certify) {
@@ -328,11 +394,14 @@ async function runPendingCertify(): Promise<void> {
   if (!retry || certifying.value) return
   certifying.value = true
   error.value = null
+  const epoch = sessionEpoch
   try {
     const result = await retry()
+    if (epoch !== sessionEpoch) return
     pendingCertify.value = null
     emit('uploaded', result)
   } catch (e) {
+    if (epoch !== sessionEpoch) return
     // Keep the pending state so the user can try again (e.g. they rejected the prompt once more).
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -369,7 +438,10 @@ async function runPendingCertify(): Promise<void> {
         <button type="button" class="wru-change-file" @click="uploadStep = 0">Change file</button>
       </p>
 
-      <p v-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
+      <p v-if="configError" class="wru-error" role="alert">
+        The relay settings are not valid, so uploads are unavailable: {{ configError }}
+      </p>
+      <p v-else-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
       <p v-else-if="connected && noRelayAvailable" class="wru-gated" role="status">
         An access pass is required to upload through this relay — purchase one above to continue.
       </p>
@@ -462,10 +534,13 @@ async function runPendingCertify(): Promise<void> {
 
       <p id="wru-help" class="wru-hint">
         Requires <strong>WAL</strong> (storage) and <strong>SUI</strong> (gas + relay fee) in your
-        wallet; three wallet approvals (relay access, blob registration, blob certification).
+        wallet; {{ approvalsHint }}.
       </p>
 
-      <p v-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
+      <p v-if="configError" class="wru-error" role="alert">
+        The relay settings are not valid, so uploads are unavailable: {{ configError }}
+      </p>
+      <p v-else-if="connected && relayPending" class="wru-gated" role="status">Checking the upload relay…</p>
       <p v-else-if="connected && noRelayAvailable" class="wru-gated" role="status">
         An access pass is required to upload through this relay — purchase one above to continue.
       </p>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ref, nextTick } from 'vue'
-import { useWalrusRelay } from './useWalrusRelay.js'
+import { useWalrusRelay } from '../src/composables/useWalrusRelay.js'
 
 const OP = 'https://operator.example'
 const PUB = 'https://public.example'

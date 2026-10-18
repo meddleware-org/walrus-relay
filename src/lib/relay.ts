@@ -90,34 +90,124 @@ export function parseTipFromConfig(data: unknown, encodedBytes?: number): bigint
   return cfg === null ? null : estimateTipMist(cfg, encodedBytes)
 }
 
+/**
+ * How a relay's tip reads, so the UI never shows an unknown tip as a free relay:
+ * - `none`: the relay advertises no tip (`no_tip`);
+ * - `known`: a tip schedule that parsed and is within {@link MAX_TIP_MIST};
+ * - `unknown`: unreachable, not JSON, too large to read or not a recognised schedule;
+ * - `over-ceiling`: a schedule that parsed but whose tip exceeds {@link MAX_TIP_MIST}.
+ */
+export type TipStatus = 'none' | 'known' | 'unknown' | 'over-ceiling'
+
+/** Classify a parsed tip schedule (`null` when none could be read) for display. */
+export function describeTip(
+  cfg: RelayTipConfig | null,
+  encodedBytes?: number,
+): { tip: bigint | null; status: TipStatus } {
+  if (cfg === null) return { tip: null, status: 'unknown' }
+  const tip = estimateTipMist(cfg, encodedBytes)
+  if (tip === null) return { tip: null, status: 'over-ceiling' }
+  return { tip, status: cfg.kind === 'none' ? 'none' : 'known' }
+}
+
 /** Result of a relay health probe. */
 export interface RelayHealth {
   /** Whether `/v1/tip-config` responded 200 within the timeout. */
   accessible: boolean
-  /** Parsed tip in MIST (best-effort; `null` if unreachable or unparseable). */
+  /** Parsed tip in MIST (the base for a linear schedule); `null` unless `tipStatus` is `none` or `known`. */
   tip: bigint | null
+  /** Why `tip` is or is not a number. `unknown` whenever the relay is unreachable. */
+  tipStatus: TipStatus
+  /** The shape of the advertised schedule; `null` when it could not be read. */
+  tipKind: RelayTipConfig['kind'] | null
+}
+
+/** Largest `/v1/tip-config` body that is read. A real one is a few hundred bytes. */
+export const MAX_TIP_CONFIG_BYTES = 16 * 1024
+
+/**
+ * Parse a response body as JSON without reading more than `maxBytes` of it: the relay is untrusted,
+ * and a timeout bounds time but not memory.
+ *
+ * @throws {Error} if the body is larger than `maxBytes` or is not JSON.
+ */
+export async function readBoundedJson(res: Response, maxBytes = MAX_TIP_CONFIG_BYTES): Promise<unknown> {
+  const declared = Number(res.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => {})
+    throw new Error(`response body is larger than ${maxBytes} bytes`)
+  }
+  let text: string
+  if (res.body) {
+    const reader = res.body.getReader()
+    const chunks: Uint8Array[] = []
+    let total = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {})
+        throw new Error(`response body is larger than ${maxBytes} bytes`)
+      }
+      chunks.push(value)
+    }
+    const all = new Uint8Array(total)
+    let at = 0
+    for (const c of chunks) {
+      all.set(c, at)
+      at += c.byteLength
+    }
+    text = new TextDecoder().decode(all)
+  } else {
+    text = await res.text()
+    if (text.length > maxBytes) throw new Error(`response body is larger than ${maxBytes} bytes`)
+  }
+  return JSON.parse(text)
+}
+
+/** `host` without trailing slashes, so a path can be appended. */
+function trimHost(host: string): string {
+  return host.replace(/\/+$/, '')
 }
 
 /**
- * Probe a relay's `/v1/tip-config`. Never throws — a network error or non-200
- * resolves to `{ accessible: false, tip: null }` so callers can branch on the
- * result rather than catch. `timeoutMs` bounds the wait (default 3s).
+ * Read a relay's `/v1/tip-config`. Never throws: a network error, timeout or non-200 is
+ * `{ accessible: false, config: null }`; a reachable relay whose body is not JSON, is too large or is
+ * not a recognised schedule is `{ accessible: true, config: null }` (its tip is unknown, not zero).
+ * `host` must already have been checked with {@link requireHttpsHost}.
+ */
+export async function fetchTipConfig(
+  host: string,
+  timeoutMs = 3000,
+): Promise<{ accessible: boolean; config: RelayTipConfig | null }> {
+  try {
+    const res = await fetch(`${trimHost(host)}/v1/tip-config`, { signal: AbortSignal.timeout(timeoutMs) })
+    if (!res.ok) return { accessible: false, config: null }
+    try {
+      return { accessible: true, config: parseTipConfig(await readBoundedJson(res)) }
+    } catch {
+      // Reachable but unreadable (not JSON, or larger than the cap): the tip stays unknown.
+      return { accessible: true, config: null }
+    }
+  } catch {
+    return { accessible: false, config: null }
+  }
+}
+
+/**
+ * Probe a relay's `/v1/tip-config`. A network error or non-200 resolves to
+ * `{ accessible: false, tip: null, tipStatus: 'unknown' }` so callers branch on the result instead
+ * of catching; `timeoutMs` bounds the wait (default 3s).
+ *
+ * @throws {Error} if `host` is not an https URL (or loopback http): that is a configuration error,
+ * not a relay outage, and must not read as "unreachable".
  */
 export async function probeRelay(host: string, timeoutMs = 3000): Promise<RelayHealth> {
   requireHttpsHost(host, 'probeRelay')
-  try {
-    const res = await fetch(`${host}/v1/tip-config`, { signal: AbortSignal.timeout(timeoutMs) })
-    if (!res.ok) return { accessible: false, tip: null }
-    let tip: bigint | null = null
-    try {
-      tip = parseTipFromConfig(await res.json())
-    } catch {
-      // Reachable but unparseable tip — still "accessible"; tip stays null.
-    }
-    return { accessible: true, tip }
-  } catch {
-    return { accessible: false, tip: null }
-  }
+  const { accessible, config } = await fetchTipConfig(host, timeoutMs)
+  const { tip, status } = describeTip(config)
+  return { accessible, tip, tipStatus: status, tipKind: config?.kind ?? null }
 }
 
 /** Aggregator hosts that serve a raw blob's bytes at `/v1/blobs/<blobId>`. */
@@ -126,24 +216,35 @@ export const WALRUS_AGGREGATOR_HOSTS: Record<WalrusNetwork, string> = {
   mainnet: 'https://aggregator.walrus-mainnet.walrus.space',
 }
 
-/** Throw unless `host` is an https URL (plain http is allowed for a localhost testbed only). */
+/** Hosts that may be reached over plain http (a local testbed). `URL` renders IPv6 in brackets. */
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** Throw unless `host` is an https URL (plain http is allowed for a loopback testbed only). */
 export function requireHttpsHost(host: string, context: string): void {
   let url: URL
   try { url = new URL(host) } catch {
     throw new Error(`${context}: invalid URL: ${host}`)
   }
-  // Allow HTTP for localhost testing only; production/remote hosts must use HTTPS.
-  const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
-  if (url.protocol !== 'https:' && !isLocalhost) {
-    throw new Error(`${context}: host must use https://, got: ${host}`)
-  }
+  // Production and remote hosts must use https; plain http only for loopback testing.
+  const allowed = url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname))
+  if (!allowed) throw new Error(`${context}: host must use https://, got: ${host}`)
+}
+
+/** The lower-cased origin of an http(s) `host`, so `https://A.example/` and `https://a.example` compare equal. */
+export function relayOrigin(host: string): string {
+  return new URL(host).origin.toLowerCase()
 }
 
 /** Public URL that serves a RAW blob's bytes (renderable by wallets/explorers). */
 export function walrusBlobUrl(network: WalrusNetwork, blobId: string, aggregatorHost?: string): string {
-  const host = aggregatorHost ?? WALRUS_AGGREGATOR_HOSTS[network]
+  let host = aggregatorHost
+  if (host === undefined) {
+    // `network` is caller-supplied: look it up as an own key, never through the prototype chain.
+    if (!Object.hasOwn(WALRUS_AGGREGATOR_HOSTS, network)) throw new Error(`walrusBlobUrl: unknown Walrus network: ${String(network)}`)
+    host = WALRUS_AGGREGATOR_HOSTS[network]
+  }
   requireHttpsHost(host, 'walrusBlobUrl')
-  return `${host}/v1/blobs/${encodeURIComponent(blobId)}`
+  return `${trimHost(host)}/v1/blobs/${encodeURIComponent(blobId)}`
 }
 
 /**
@@ -168,4 +269,14 @@ export function formatCoinAmount(base: bigint, symbol: string): string {
   const n = Number(base) / 1e9
   const s = n >= 0.0001 ? n.toFixed(4) : n.toFixed(9).replace(/0+$/, '').replace(/\.$/, '')
   return `${s} ${symbol}`
+}
+
+/**
+ * A SUI/WAL base-unit amount written exactly (no rounding): `10_000_001n` is `0.010000001 SUI`. Used
+ * where the user approves a payment, so the figure shown is the figure paid.
+ */
+export function formatCoinExact(base: bigint, symbol: string): string {
+  const whole = base / 1_000_000_000n
+  const frac = (base % 1_000_000_000n).toString().padStart(9, '0').replace(/0+$/, '')
+  return `${whole}${frac ? `.${frac}` : ''} ${symbol}`
 }

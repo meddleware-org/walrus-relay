@@ -1,17 +1,70 @@
 import { computed, ref } from 'vue'
 import type { Transaction } from '@mysten/sui/transactions'
-import { fetchAccessNfts, buildPurchaseTx, buildConsumeTx, isUsablePass } from '@meddleware/access-gate-client'
-import type { AccessGateConfig, OwnedObjectsClient, PassVariant } from '@meddleware/access-gate-client'
+import {
+  abortMessage,
+  buildConsumeTx,
+  buildPurchaseTx,
+  fetchAccessNfts,
+  fetchGate,
+  fetchPlatformConfig,
+  gateCommissionMist as gatePlatformShareMist,
+  isUsablePass,
+} from '@meddleware/access-gate-client'
+import type { AccessGateConfig, OwnedObjectsClient, PassVariant, SuiObjectClient } from '@meddleware/access-gate-client'
+import { accessGateDeployment } from '@meddleware/access-gate-client/deployments'
+import { assertPinnedGate } from '../constants.js'
+import type { WalrusNetwork } from '../lib/relay.js'
 
-export type { AccessGateConfig, OwnedObjectsClient }
+export type { AccessGateConfig, OwnedObjectsClient, SuiObjectClient }
+
+/** The reads this composable makes: owned objects (passes) and single objects (the gate, the config). */
+export type GateClient = OwnedObjectsClient & SuiObjectClient
 
 /**
- * An access-gate config plus the on-chain purchase price. Build it with `relayGateConfig`, which
- * fixes the package and `PlatformConfig` to Meddleware's deployment; `priceMist` is what
- * {@link buildPurchaseTx} splits from gas.
+ * An access-gate config for the relay. Build it with `relayGateConfig`, which fixes the package and
+ * `PlatformConfig` to the published deployment; `useAccessGate` refuses any other. The purchase
+ * price is read from the gate, not configured.
  */
 export interface RelayGateConfig extends AccessGateConfig {
-  priceMist: bigint | number
+  /** Whether the gate mints soulbound passes (checked against the gate on the chain). */
+  soulbound: boolean
+}
+
+/**
+ * Exactly what a purchase costs and who receives it, read from the gate and the `PlatformConfig` on
+ * the chain. This is what the purchase prompt shows before the wallet opens, and what the purchase
+ * is built from.
+ */
+export interface PurchaseTerms {
+  network: WalrusNetwork
+  gateId: string
+  /** The whole payment, MIST (the gate's price). The wallet pays this and nothing more than gas. */
+  priceMist: bigint
+  /** The gate operator's payment address and its share of the price, MIST. */
+  operator: { address: string; mist: bigint }
+  /** The platform treasury's address and its share of the price, MIST. */
+  platform: { address: string; mist: bigint }
+  /** A paused gate cannot be bought from. */
+  paused: boolean
+  /** Whether the pass is soulbound (not transferable). */
+  soulbound: boolean
+  /** Uses on a new pass; `0n` is an unlimited pass. */
+  defaultUses: bigint
+}
+
+/** True if two reads of the terms are the same, field for field. */
+function sameTerms(a: PurchaseTerms, b: PurchaseTerms): boolean {
+  return (
+    a.gateId === b.gateId &&
+    a.priceMist === b.priceMist &&
+    a.operator.address === b.operator.address &&
+    a.operator.mist === b.operator.mist &&
+    a.platform.address === b.platform.address &&
+    a.platform.mist === b.platform.mist &&
+    a.paused === b.paused &&
+    a.soulbound === b.soulbound &&
+    a.defaultUses === b.defaultUses
+  )
 }
 
 /**
@@ -38,11 +91,18 @@ export interface GateExecutor {
 export const PENDING_PURCHASE_MS = 120_000
 
 export function useAccessGate(deps: {
+  /** The Walrus network the gate is on; passed to `getClient`, and the deployment `gate` must match. */
+  network: WalrusNetwork
   gate: RelayGateConfig | null
-  getClient: () => OwnedObjectsClient
+  /** The Sui client for `network` (a gRPC client satisfies it). */
+  getClient: (network: WalrusNetwork) => GateClient
 }) {
   const gate = deps.gate
   const gateConfigured = gate !== null
+  // Every transaction built here targets the published deployment: a config that names another
+  // package or PlatformConfig is refused up front, whoever built it.
+  if (gate) assertPinnedGate(deps.network, gate)
+  const originalId = gate ? accessGateDeployment(deps.network).originalId : ''
 
   // No gate → open. Gate → unknown until checked.
   const hasAccess = ref<boolean | null>(gateConfigured ? null : true)
@@ -64,6 +124,66 @@ export function useAccessGate(deps: {
   /** Bumped on every reset/new check so a response for a previous wallet is discarded. */
   let generation = 0
 
+  /** The terms last read from the chain (what the purchase prompt shows); null until read. */
+  const terms = ref<PurchaseTerms | null>(null)
+  const termsLoading = ref(false)
+  /** Why the terms could not be read (the purchase stays blocked); null when they could. */
+  const termsError = ref<string | null>(null)
+  /** Why the last purchase did not complete; null otherwise. */
+  const purchaseError = ref<string | null>(null)
+  let termsGeneration = 0
+
+  /** Read the gate and the PlatformConfig and derive the terms. Pure: it sets no state. */
+  async function readTerms(): Promise<PurchaseTerms> {
+    if (!gate) throw new Error('No access gate configured for this network.')
+    const client = deps.getClient(deps.network)
+    const [onChain, platform] = await Promise.all([
+      fetchGate(client, gate.gateId, originalId),
+      fetchPlatformConfig(client, gate.platformConfigId, originalId),
+    ])
+    if (!onChain) throw new Error(`${gate.gateId} is not an access gate of the published ${deps.network} deployment.`)
+    if (onChain.soulbound !== gate.soulbound) {
+      throw new Error(
+        `The configured pass kind (${gate.soulbound ? 'soulbound' : 'transferable'}) does not match the gate on the chain.`,
+      )
+    }
+    const platformMist = gatePlatformShareMist(onChain, platform)
+    return {
+      network: deps.network,
+      gateId: onChain.gateId,
+      priceMist: onChain.priceMist,
+      operator: { address: onChain.paymentRecipient, mist: onChain.priceMist - platformMist },
+      platform: { address: platform.treasury, mist: platformMist },
+      paused: onChain.paused,
+      soulbound: onChain.soulbound,
+      defaultUses: onChain.defaultUses,
+    }
+  }
+
+  /**
+   * Read the purchase terms from the chain and publish them in `terms`. Resolves to the terms, or to
+   * `null` when they could not be read (`termsError` says why) or a newer read superseded this one.
+   */
+  async function loadTerms(): Promise<PurchaseTerms | null> {
+    if (!gate) return null
+    const mine = ++termsGeneration
+    termsLoading.value = true
+    try {
+      const read = await readTerms()
+      if (mine !== termsGeneration) return null
+      terms.value = read
+      termsError.value = null
+      return read
+    } catch (e) {
+      if (mine !== termsGeneration) return null
+      terms.value = null
+      termsError.value = e instanceof Error ? e.message : String(e)
+      return null
+    } finally {
+      if (mine === termsGeneration) termsLoading.value = false
+    }
+  }
+
   /**
    * Forget everything known about the previous wallet (call on disconnect or account switch):
    * access, uses and the held NFT, and invalidate any in-flight ownership check.
@@ -76,6 +196,11 @@ export function useAccessGate(deps: {
     error.value = null
     checking.value = false
     pendingPurchase.value = null
+    termsGeneration++
+    terms.value = null
+    termsError.value = null
+    termsLoading.value = false
+    purchaseError.value = null
   }
 
   /** Query whether `address` holds the gate NFT. Cheap; safe to call on connect. */
@@ -88,7 +213,7 @@ export function useAccessGate(deps: {
     checking.value = true
     error.value = null
     try {
-      const nfts = await fetchAccessNfts(deps.getClient(), address, gate.nftType, gate.gateId)
+      const nfts = await fetchAccessNfts(deps.getClient(deps.network), address, gate.nftType, gate.gateId)
       if (mine !== generation) return // stale: the wallet changed while this check was in flight
       // Keep only usable passes (unlimited, or single-use with uses left); an exhausted receipt is
       // not access. Sort so the most-depleted single-use pass is consumed first (minimises stranded
@@ -107,6 +232,8 @@ export function useAccessGate(deps: {
       variant.value = best ? best.variant : null
       nftId.value = best ? best.objectId : null
       if (best) pendingPurchase.value = null
+      // No pass: the purchase prompt comes next, so read what it will show now.
+      else if (!terms.value && !termsLoading.value) void loadTerms()
     } catch (e) {
       if (mine !== generation) return
       // A failed check must NOT hard-block the user: leave access false but keep the
@@ -114,14 +241,32 @@ export function useAccessGate(deps: {
       hasAccess.value = false
       nftId.value = null
       error.value = e instanceof Error ? e.message : String(e)
+      if (!terms.value && !termsLoading.value) void loadTerms()
     } finally {
       if (mine === generation) checking.value = false
     }
   }
 
-  /** Purchase access via the connected wallet, then re-check ownership. */
+  /**
+   * Purchase access via the connected wallet, then re-check ownership.
+   *
+   * The wallet is asked to sign only for terms the user has seen: the terms are read from the chain
+   * right before signing and must equal the `terms` last shown. If they differ (or none were shown
+   * yet) the new terms are published in `terms` and this throws, so the user reviews them first.
+   * A paused gate is refused before any prompt. An `access_gate` abort is reported in words.
+   */
   async function purchase(executor: GateExecutor, address: string): Promise<void> {
     if (!gate) throw new Error('No access gate configured for this network.')
+    purchaseError.value = null
+    try {
+      await runPurchase(gate, executor, address)
+    } catch (e) {
+      purchaseError.value = e instanceof Error ? e.message : String(e)
+      throw e
+    }
+  }
+
+  async function runPurchase(g: RelayGateConfig, executor: GateExecutor, address: string): Promise<void> {
     const pending = pendingPurchase.value
     if (pending && Date.now() - pending.at < PENDING_PURCHASE_MS) {
       await checkOwnership(address)
@@ -131,8 +276,30 @@ export function useAccessGate(deps: {
           'Check again in a moment instead of buying another pass.',
       )
     }
-    const tx = buildPurchaseTx(gate, gate.priceMist)
-    const res = await executor.signAndExecute(tx)
+    const shown = terms.value
+    const mine = ++termsGeneration
+    let fresh: PurchaseTerms
+    try {
+      fresh = await readTerms()
+    } catch (e) {
+      throw new Error(`Could not read the pass price from the chain: ${e instanceof Error ? e.message : String(e)}`, { cause: e })
+    }
+    if (mine === termsGeneration) {
+      terms.value = fresh
+      termsError.value = null
+    }
+    if (fresh.paused) throw new Error('This gate is paused; access cannot be purchased right now.')
+    if (!shown || !sameTerms(shown, fresh)) {
+      throw new Error('The pass terms have changed. Review the payment and recipients shown, then confirm again.')
+    }
+    const tx = buildPurchaseTx(g, fresh.priceMist)
+    let res: { digest?: string }
+    try {
+      res = await executor.signAndExecute(tx)
+    } catch (e) {
+      const message = abortMessage(e, originalId)
+      throw message ? new Error(message, { cause: e }) : e
+    }
     // The executor throws for a failed transaction, so a digest here means the purchase executed.
     if (res.digest) pendingPurchase.value = { digest: res.digest, at: Date.now() }
     let waitError: unknown
@@ -169,6 +336,11 @@ export function useAccessGate(deps: {
     checking,
     error,
     pendingPurchase,
+    terms,
+    termsLoading,
+    termsError,
+    purchaseError,
+    loadTerms,
     /** Convenience: gate configured AND access confirmed. */
     accessGranted: computed(() => !gateConfigured || hasAccess.value === true),
     checkOwnership,

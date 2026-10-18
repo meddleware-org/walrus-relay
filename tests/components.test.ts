@@ -10,8 +10,20 @@ import * as axeMatchers from 'vitest-axe/matchers'
 import WalrusUpload from '../src/components/WalrusUpload.vue'
 import AccessGateCta from '../src/components/AccessGateCta.vue'
 import TipConfigBadge from '../src/components/TipConfigBadge.vue'
+import type { PurchaseTerms } from '../src/composables/useAccessGate'
 
 expect.extend(axeMatchers)
+
+const terms: PurchaseTerms = {
+  network: 'testnet',
+  gateId: `0x${'a1'.repeat(32)}`,
+  priceMist: 10_000_000n,
+  operator: { address: `0x${'0b'.repeat(32)}`, mist: 9_980_000n },
+  platform: { address: `0x${'7e'.repeat(32)}`, mist: 20_000n },
+  paused: false,
+  soulbound: true,
+  defaultUses: 10n,
+}
 
 // jsdom has no canvas: axe-core probes getContext() during some checks, and jsdom logs
 // "Not implemented" before returning null. Return null up front — the same result axe already
@@ -19,33 +31,7 @@ expect.extend(axeMatchers)
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 const opts = { rules: { region: { enabled: false } } }
 
-vi.mock('@meddleware/ui', async () => {
-  const { defineComponent, h } = await import('vue')
-  return {
-    UiDialog: defineComponent({
-      props: { open: Boolean, title: String, dismissible: { type: Boolean, default: true }, width: String },
-      setup(props, { slots }) {
-        return () =>
-          props.open
-            ? h('dialog', { open: true, 'aria-labelledby': 'dlg-title' }, [
-                h('article', [
-                  h('header', [h('h2', { id: 'dlg-title' }, props.title)]),
-                  slots.default?.(),
-                  slots.actions ? h('footer', slots.actions()) : null,
-                ]),
-              ])
-            : null
-      },
-    }),
-    UiStepper: defineComponent({
-      props: { steps: Array, modelValue: Number },
-      setup(props) {
-        return () =>
-          h('ol', (props.steps as { id: string; label: string }[]).map((s) => h('li', { key: s.id }, s.label)))
-      },
-    }),
-  }
-})
+vi.mock('@meddleware/ui', async () => import('./helpers/ui-stubs.js'))
 
 vi.mock('../src/composables/useWalrusRelay.js', async () => {
   const { ref, computed } = await import('vue')
@@ -64,7 +50,7 @@ vi.mock('../src/composables/useWalrusRelay.js', async () => {
 
 vi.mock('../src/lib/relay.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/lib/relay.js')>()),
-  probeRelay: async () => ({ accessible: false, tip: null }),
+  probeRelay: async () => ({ accessible: false, tip: null, tipStatus: 'unknown', tipKind: null }),
 }))
 
 describe('walrus-relay components (axe)', () => {
@@ -82,9 +68,21 @@ describe('walrus-relay components (axe)', () => {
     expect(await axe(w.html(), opts)).toHaveNoViolations()
   })
 
-  it('AccessGateCta (no access, priced) has no violations', async () => {
-    const w = mount(AccessGateCta, { props: { gateConfigured: true, hasAccess: false, priceMist: 1_000_000_000n } })
+  it('AccessGateCta (no access, terms read) has no violations', async () => {
+    const w = mount(AccessGateCta, { props: { gateConfigured: true, hasAccess: false, terms } })
     expect(await axe(w.html(), opts)).toHaveNoViolations()
+  })
+
+  it('AccessGateCta (terms loading, terms error, paused, purchase error) has no violations', async () => {
+    for (const props of [
+      { terms: null },
+      { terms: null, termsError: 'rpc down' },
+      { terms: { ...terms, paused: true } },
+      { terms, purchaseError: 'The payment is less than the gate price.' },
+    ]) {
+      const w = mount(AccessGateCta, { props: { gateConfigured: true, hasAccess: false, ...props } })
+      expect(await axe(w.html(), opts)).toHaveNoViolations()
+    }
   })
 
   it('TipConfigBadge has no violations', async () => {
