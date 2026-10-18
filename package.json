@@ -1,7 +1,7 @@
 {
   "name": "@meddleware/walrus-relay",
-  "version": "0.1.30",
-  "description": "Shared Vue 3 UI for the Walrus upload relay: relay selection + tip estimation, NFT-gate access, and a blob-upload widget. Built on @meddleware/walrus-client + @meddleware/nft-gate-client.",
+  "version": "0.1.31",
+  "description": "Shared Vue 3 UI for the Walrus upload relay: relay selection + tip estimation, NFT-gate access, and a blob-upload widget. Built on @meddleware/walrus-client + @meddleware/access-gate-client.",
   "author": "Meddleware <dev@meddleware.co.uk>",
   "license": "0BSD",
   "repository": {
@@ -13,6 +13,9 @@
     "*.css",
     "*.vue"
   ],
+  "engines": {
+    "node": ">=24"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -20,7 +23,9 @@
     }
   },
   "files": [
-    "src"
+    "src",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "scripts": {
     "type-check": "vue-tsc --noEmit",
@@ -30,7 +35,9 @@
     "lint:css": "stylelint \"src/**/*.{css,vue}\"",
     "lint:js": "eslint .",
     "lint": "npm run lint:css && npm run lint:js && npm run lint:html",
-    "lint:html": "html-validate \"src/**/*.vue\""
+    "lint:html": "html-validate \"src/**/*.vue\"",
+    "build:gallery": "vite build --config vite.gallery.config.ts",
+    "test:e2e": "playwright test"
   },
   "peerDependencies": {
     "@mysten/sui": "^2.33.2",
@@ -44,9 +51,11 @@
     "@meddleware/walrus-client": "^0.0.28"
   },
   "devDependencies": {
+    "@axe-core/playwright": "~4.13.0",
     "@meddleware/eslint-config": "^0.0.2",
     "@mysten/sui": "^2.33.2",
     "@mysten/walrus": "~1.2.32",
+    "@playwright/test": "~1.63.0",
     "@types/node": "~24.12.2",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/eslint-config-typescript": "^14.9.0",
@@ -64,6 +73,7 @@
     "stylelint": "^17.15.0",
     "stylelint-config-standard": "^40.0.0",
     "typescript": "~6.0.0",
+    "vite": "^8.3.4",
     "vitest": "~5.0.2",
     "vitest-axe": "^0.1.0",
     "vue": "^3.5.40",

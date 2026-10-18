@@ -703,11 +703,22 @@ async function runPendingCertify(): Promise<void> {
 .wru-modal :deep(.mw-dialog__actions) {
   justify-content: center;
 }
-.wru-dup__primary {
+/* The dialog buttons set their own surface and text colour, so their contrast does not depend on the
+   browser's button colours (a dark colour scheme paints a native button mid-grey). */
+.wru-modal :deep(.mw-dialog__actions) button {
+  background: transparent;
+  color: var(--text, #201b19);
+  border: 1px solid var(--border, #ded6cf);
+  border-radius: var(--radius, 10px);
+  padding: 0.35rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+}
+.wru-modal :deep(.mw-dialog__actions) button.wru-dup__primary {
   border-color: var(--accent, #b84527);
   color: var(--accent, #b84527);
 }
-.wru-dup__cancel {
+.wru-modal :deep(.mw-dialog__actions) button.wru-dup__cancel {
   color: var(--muted, #6e635c);
 }
 .wru-gated {

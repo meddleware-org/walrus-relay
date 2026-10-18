@@ -10,20 +10,23 @@ token-deployer app for image upload.
 **Package name history:** Previously published as `@meddleware/walrus-relay-ui`; renamed to
 `@meddleware/walrus-relay` v0.1.0 for consistency with the `walrus-relay` repo name.
 
-## Commission enforcement (do not change)
+## Gate config pinning (do not change)
 
-`relayGateConfig(network, { gateId, soulbound, priceMist })` builds every relay gate config.
-It takes the `access_gate` package and the `PlatformConfig` shared object from
+`relayGateConfig(network, { gateId, soulbound })` builds every relay gate config. It takes the
+`access_gate` package and the `PlatformConfig` shared object from
 `@meddleware/access-gate-client/deployments`, generated from `access-gate-sui`'s published records.
-The caller cannot pass them in. Any operator who uses this library therefore routes through
-Meddleware's `PlatformConfig`, and the on-chain platform commission on every access NFT purchase
-goes to the Meddleware treasury.
+The caller cannot pass them in. `useAccessGate({ network, gate, getClient })` enforces the same thing
+for any config it is given (`assertPinnedGate`): the package, the `PlatformConfig` and the NFT type
+(at the original id, matching `soulbound`) must equal the published deployment for `network`, or it
+throws. The price, the payment recipient and the platform's share are not configured: they are read
+from the `Gate` and `PlatformConfig` objects on the chain (`terms`) and shown before the wallet opens.
 
 Do NOT:
 
 - move these ids to env vars;
 - add parameters that let operators override them;
-- copy them into this repo.
+- copy them into this repo;
+- build the purchase from a price that was not read from the chain.
 
 They change only when `access-gate-sui` publishes a new deployment record. Bump
 `@meddleware/access-gate-client` to pick it up.
@@ -68,7 +71,9 @@ Operator relay URLs are NOT hardcoded here. They are passed by the consuming app
 1. App reads `VITE_WALRUS_RELAY_TESTNET` / `VITE_WALRUS_RELAY_MAINNET` from env.
 2. App passes `{ operator: OPERATOR_RELAY_HOSTS[network], public: PUBLIC_WALRUS_RELAY_HOSTS[network] }`
    to `WalrusUpload` (or `useWalrusRelay`).
-3. The composable health-probes the operator relay and falls back to the public relay if unreachable.
+3. The composable validates both hosts (https; plain http only on loopback) and throws otherwise,
+   health-probes the operator relay (re-checking with backoff) and falls back to the public relay if
+   unreachable.
 
 ## `lib/relay.ts` — pure module, no Vue
 
@@ -85,10 +90,10 @@ token-deployer app's non-reactive utils).
 | `VITE_WALRUS_RELAY_MAINNET` | Operator relay URL for mainnet |
 | `VITE_ACCESS_GATE_ID_{NET}` | Gate shared object ID |
 | `VITE_ACCESS_GATE_SOULBOUND_{NET}` | Whether NFTs are soulbound |
-| `VITE_ACCESS_GATE_PRICE_MIST_{NET}` | Purchase price in MIST |
 | `VITE_UPLOAD_RELAY_MAX_TIP_MIST` | Max tip cap passed to `createWalrusClient` |
 
-The package and `PlatformConfig` come from `relayGateConfig`. Operators configure everything else.
+The package and `PlatformConfig` come from `relayGateConfig`; the price comes from the gate on the chain.
+Operators configure everything else.
 
 ## Deferred: NFT picker for multi-NFT wallets
 
@@ -108,7 +113,9 @@ the gateway verifies the consume event, not the purchase count.
 ## What NOT to do
 
 - Do not add a `configurePackageId()` function or any API that lets operators override
-  the commission-routing ids `relayGateConfig` takes from `deployments`.
+  the ids `relayGateConfig` takes from `deployments`.
+- Do not sign a purchase for terms the user has not seen: `purchase` reads the terms again and
+  refuses when they differ from the ones shown.
 - Do not import `@mysten/walrus` — the Walrus client is app-injected via `performUpload`.
 - Do not add wallet-standard imports — stay wallet-agnostic.
 - Do not add a build step — the package ships source for consumers to bundle.

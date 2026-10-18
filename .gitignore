@@ -2,3 +2,7 @@ node_modules/
 dist/
 target/
 .wrangler/
+gallery-dist/
+test-results/
+playwright-report/
+*.tgz

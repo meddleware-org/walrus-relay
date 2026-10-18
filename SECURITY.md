@@ -3,34 +3,55 @@
 ## Scope
 
 This policy covers security issues in the `@meddleware/walrus-relay` package source (`src/**`) —
-relay selection + tip estimation (`src/lib/relay.ts`), the access-gate composable, the tip/badge/
-upload components, and the hardcoded commission-routing constants.
+relay selection and tip estimation (`src/lib/relay.ts`, `useWalrusRelay`), the access-gate composable
+(`useAccessGate`: ownership, the purchase terms and the purchase), `relayGateConfig`, and the
+tip/badge/upload/purchase components.
 
 It does not cover:
 
-- The first-party `@meddleware/*` dependencies it builds on (`nft-gate-client`, `walrus-client`,
+- The first-party `@meddleware/*` dependencies it builds on (`access-gate-client`, `walrus-client`,
   `ui`, `design-tokens` — see their own policies) or `@mysten/sui`
-- The consuming app's injected wallet (`GateExecutor` / `PersonalMessageSigner`), Walrus client
-  (`performUpload`), and relay hosts — the app is the trusted embedder
+- The consuming app's injected wallet executor (`GateExecutor`), Walrus client (`performUpload`), Sui
+  client (`getClient`) and relay hosts — the app is the trusted embedder
 - The authoritative tip cap, which lives app-side in `createWalrusClient`
-  (`VITE_UPLOAD_RELAY_MAX_TIP_MIST`)
+  (`VITE_UPLOAD_RELAY_MAX_TIP_MIST`) and in walrus-client
+- Access proofs: they are built by `@meddleware/walrus-client` (with `@meddleware/nft-gate-client`) and
+  verified by the gateway, not here
 
 ## Security model (invariants)
 
 These invariants are load-bearing. A report demonstrating that any is violated is in scope and
 treated as high severity:
 
-1. **Commission-routing constants are hardcoded and non-overridable.** `ACCESS_GATE_PACKAGE_ID` and
-   `ACCESS_GATE_PLATFORM_CONFIG_ID` are compile-time constants with no env/param override; this is
-   deliberate so purchases route commission on-chain through the platform config. They must be
-   populated (and fail closed if empty) for the active network before use on that network.
+1. **The gate config is the published deployment.** `relayGateConfig` takes the `access_gate`
+   package and the `PlatformConfig` from `@meddleware/access-gate-client/deployments`, with no
+   env/param override, and fails for a network with no recorded deployment. `useAccessGate` checks
+   any config it is given against the same record (package, `PlatformConfig`, NFT type at the original
+   id) and throws on a mismatch, so a hand-built config cannot redirect the purchase or consume
+   transactions the library builds.
 2. **The library imports no wallet and no `@mysten/walrus` WASM.** Signing and upload are injected by
-   the app; the library builds no signing PTB itself (they are delegated to `@meddleware/nft-gate-client`).
-3. **A relay is untrusted.** Tip figures parsed from a relay's `/v1/tip-config` are display estimates;
-   the authoritative spend cap is app-side. Relay-supplied strings are rendered as text (no `v-html`).
-4. **Relay selection fails safe.** A gated, unpaid user is offered no relay (the public fallback is
-   withheld while the operator relay is up); an unreachable operator relay falls back to public.
-5. **No secrets.** The library holds no keys or tokens — only public object IDs and public `https`
+   the app. It builds the purchase and consume transactions itself, only through
+   `@meddleware/access-gate-client` builders (a lint rule, `suiBoundary()`, forbids inline
+   transactions, chain reads and unguarded URL bindings in `src`), and submits the purchase through the
+   injected `GateExecutor`.
+3. **A purchase is signed only for terms the user has seen.** The price, the operator and platform
+   payees and the platform's share are read from the `Gate` and `PlatformConfig` on the chain. The
+   wallet is not asked to sign unless the terms read right before signing equal the terms last shown;
+   a paused gate, an unreadable price or a changed term stops the purchase before any prompt. The
+   payment is split from gas at exactly the on-chain price.
+4. **A relay is untrusted.** Tip figures parsed from a relay's `/v1/tip-config` are display estimates;
+   the authoritative spend cap is app-side. The body is read with a size cap, an unknown or
+   above-ceiling tip is never shown as "no tip" or as free, and relay-supplied strings are rendered as
+   text (no `v-html`).
+5. **Relay selection fails safe.** A gated, unpaid user is offered no relay (the public fallback is
+   withheld while the operator relay is up); an unreachable operator relay falls back to public and is
+   re-checked; an invalid (non-https) host offers nothing instead of the free relay. This is a
+   client-side policy, not access control; access itself is decided by the gateway.
+6. **Wallet state does not leak across accounts or networks.** `useAccessGate.reset()` and a
+   generation counter discard stale ownership and terms; `WalrusUpload` drops the chosen file and any
+   held retry, and ignores the result of an upload that finishes after the session changed, when
+   `sessionKey` changes.
+7. **No secrets.** The library holds no keys or tokens — only public object IDs and public `https`
    hosts.
 
 ## Supported versions

@@ -18,5 +18,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "tests/**/*.ts", "gallery/**/*.ts", "gallery/**/*.vue"]
 }

@@ -12,8 +12,8 @@ import {
 } from '../lib/relay.js'
 
 /**
- * The two relay hosts a consumer offers: the operator's own relay (collects the
- * native tip as revenue) and the public Mysten fallback.
+ * The two relay hosts a consumer offers: the operator's own relay (which charges
+ * the native tip) and the public Mysten fallback.
  * When `operator` and `public` are the same origin there is no operator relay configured.
  */
 export interface WalrusRelayHosts {

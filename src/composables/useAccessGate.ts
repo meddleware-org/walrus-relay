@@ -42,7 +42,7 @@ export interface PurchaseTerms {
   priceMist: bigint
   /** The gate operator's payment address and its share of the price, MIST. */
   operator: { address: string; mist: bigint }
-  /** The platform treasury's address and its share of the price, MIST. */
+  /** The platform's payee address (from the PlatformConfig) and its share of the price, MIST. */
   platform: { address: string; mist: bigint }
   /** A paused gate cannot be bought from. */
   paused: boolean

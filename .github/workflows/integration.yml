@@ -65,7 +65,7 @@ jobs:
 
       - name: Install deps
         working-directory: repos/walrus-relay
-        run: npm install
+        run: npm ci
 
       - name: Run localnet integration suite
         working-directory: repos/walrus-relay

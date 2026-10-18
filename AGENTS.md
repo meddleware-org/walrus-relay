@@ -10,7 +10,7 @@ Previously published as `@meddleware/walrus-relay-ui`.
 | File | Purpose |
 | --- | --- |
 | `src/index.ts` | Package entry point — exports all public API |
-| `src/constants.ts` | `relayGateConfig` — gate config with the package and `PlatformConfig` fixed to the published deployment (commission enforcement) |
+| `src/constants.ts` | `relayGateConfig` and `assertPinnedGate` — gate config with the package and `PlatformConfig` fixed to the published deployment |
 | `src/lib/relay.ts` | Pure helpers: `parseTipFromConfig`, `probeRelay`, `walrusBlobUrl`, `MAX_SINGLE_RESERVATION_EPOCHS` |
 | `src/composables/useWalrusRelay.ts` | Relay selection, health probe, tip estimation |
 | `src/composables/useAccessGate.ts` | NFT ownership check, purchase flow, consume builder |
@@ -35,9 +35,16 @@ See `package.json` (the version was reset to `0.1.0` on the rename from `@meddle
 `@meddleware/walrus-ui` is the standalone SPA that consumes this library.
 `@meddleware/walrus-relay` is the pure library — no app entry point, no Vite config.
 
-## Commission invariant
+## Gate config invariant
 
 `relayGateConfig` takes the package and `PlatformConfig` from
-`@meddleware/access-gate-client/deployments`, never from the caller. This routes the on-chain
-platform commission to the Meddleware treasury. Do not externalise or override them; see CLAUDE.md
-for the full rationale.
+`@meddleware/access-gate-client/deployments`, never from the caller, and `useAccessGate` refuses a
+config that names anything else. The purchase price and recipients are read from the chain, not from
+config. Do not externalise or override the ids; see CLAUDE.md.
+
+## Checks
+
+```bash
+npm run type-check && npm run lint && npm test
+npm run test:e2e   # real-browser axe contrast gate over gallery/, every theme x season (needs Chromium)
+```
