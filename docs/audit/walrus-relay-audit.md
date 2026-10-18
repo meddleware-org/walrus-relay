@@ -29,7 +29,7 @@ RUST, SITE, PLATFORM.
 
 - Published: npm `@meddleware/walrus-relay` **0.1.30**, from tag `v0.1.30` = `e57b06e`, with an SLSA v1
   provenance attestation (`npm view` shows it for 0.1.27 to 0.1.30).
-- Fix wave 2026-10-10: **0.1.31** (local, commit pending, not yet tagged or published) fixes F9–F14, F16, F17
+- Fix wave 2026-10-10: **0.1.31** (local, commit `24d7c43`, not yet tagged or published) fixes F9–F14, F16, F17
   (except the integration refs), F21–F23 and the open Section D code gates. It is breaking for the consumers
   (pre-v0.2: patch bump): `useAccessGate` takes `network`, the price is no longer configured, `AccessGateCta`
   takes `terms`; walrus-ui and token-deployer-ui need a matching bump.
@@ -59,7 +59,7 @@ RUST, SITE, PLATFORM.
   resolved, and no open finding exceeds Info.
 
 **Status:** third pass re-verified 2026-10-09 at `e57b06e` (tag `v0.1.30`); fix wave 2026-10-10 on top of it
-(0.1.31, commit pending).
+(0.1.31, commit `24d7c43`).
 
 - The first pass (corpus file `walrus-relay-audit.md`, 2026-09-18) covered npm 0.1.12, predates the
   lens templates, and described constants and dependencies that no longer exist.
@@ -222,7 +222,7 @@ Critical / High / Medium / Low / Info / Positive.
 
 ## Scope
 
-**In scope (HEAD `e57b06e` = tag `v0.1.30`, 2026-10-09; the fix wave 2026-10-10 is 0.1.31, commit pending; the second pass was at `f6085e9` = `v0.1.26`):**
+**In scope (HEAD `e57b06e` = tag `v0.1.30`, 2026-10-09; the fix wave 2026-10-10 is 0.1.31, commit `24d7c43`; the second pass was at `f6085e9` = `v0.1.26`):**
 
 - `src/{index,constants,env.d}.ts`, `src/lib/{relay,upload-steps}.ts`,
   `src/composables/{useAccessGate,useWalrusRelay}.ts`,
@@ -362,7 +362,7 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 
 ### F9 — `TipConfigBadge` shows "no tip" for an unknown, unparseable or over-ceiling tip; `probeRelay` throws despite "never throws"
 
-**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** `src/components/TipConfigBadge.vue:27-30` (`tipLabel`); `src/lib/relay.ts:101-121`
 (`probeRelay`, documented "Never throws", but `requireHttpsHost` throws before the `try`).
 
@@ -398,7 +398,7 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 the throw. The mounted badge test is axe-only. The bounded payment (the SDK cap) is unchanged, so the
 severity stays Low. The consumers pass fixed https hosts, so the stuck badge needs a misconfiguration.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):**
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
 - `RelayHealth` gains `tipStatus: 'none' | 'known' | 'unknown' | 'over-ceiling'` and `tipKind`; `describeTip` classifies a parsed schedule. `TipConfigBadge` shows "no tip" only for a relay that advertises `no_tip`, "tip 0.0001 SUI" (or "from …" for a linear schedule) for a known tip, "tip unknown" and "tip above the limit" otherwise, and "Relay address is not valid" for an invalid host. The unknown and above-limit states are drawn in the accent colour.
 - `probeRelay` keeps throwing for a non-https host, and its doc now says so (a configuration error must not read as an outage); `TipConfigBadge.refresh()` catches it, shows the invalid state, and ignores an answer for a host that changed meanwhile.
@@ -407,7 +407,7 @@ severity stays Low. The consumers pass fixed https hosts, so the stuck badge nee
 
 ### F10 — `useAccessGate` accepts any `RelayGateConfig`; commission pinning holds only through `relayGateConfig`
 
-**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending; OQ7 answered) (was DEFERRED at 0.1.30)
+**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`; OQ7 answered) (was DEFERRED at 0.1.30)
 **Where:** `src/composables/useAccessGate.ts:13-15, 40-44` (`gate: RelayGateConfig | null`, a plain
 structural interface); CLAUDE.md "Commission enforcement"; README; `SECURITY.md` invariant 1.
 
@@ -445,7 +445,7 @@ token-deployer-ui) still use `relayGateConfig`. The white-label policy
 mechanism is now `relayGateConfig`. Whether to enforce it in the composable is OQ7 and is the
 maintainer's call.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** OQ7 had one best-practice answer once the other fix existed. The pinning to the published deployment is now a property of the purchase path, not of a helper.
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** OQ7 had one best-practice answer once the other fix existed. The pinning to the published deployment is now a property of the purchase path, not of a helper.
 
 - `useAccessGate({ network, gate, getClient })` runs `assertPinnedGate(network, gate)` at construction (`src/constants.ts`): the package, the `PlatformConfig` and the NFT type (normalised, at the original id, matching `soulbound`) must equal `accessGateDeployment(network)`, or it throws. A network with no recorded deployment throws (mainnet today) unless `gate` is `null` (an ungated relay needs no deployment). Because `buildPurchaseTx` and `buildConsumeTx` take their targets from the pinned config, nothing the library builds can target another package or `PlatformConfig`.
 - CLAUDE.md, README, AGENTS.md and `SECURITY.md` state the guarantee precisely and without the economics (F23).
@@ -454,7 +454,7 @@ maintainer's call.
 
 ### F11 — Purchase uses the app-configured price; the signing UX omits recipients, commission and paused state
 
-**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending; OQ8 answered) (was DEFERRED at 0.1.30)
+**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`; OQ8 answered) (was DEFERRED at 0.1.30)
 **Where:**
 
 - `src/composables/useAccessGate.ts:134` (`buildPurchaseTx(gate, gate.priceMist)`);
@@ -491,7 +491,7 @@ The pieces are now available in access-gate-client 0.0.8 (`fetchGate`, `fetchPla
 `minimumPaidPriceMist`, `commissionForPrice`, `abortMessage(error, originalId)`), but this library
 does not call them. Decision to carry (OQ8): whether the CTA reads the gate on-chain.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** OQ8 had one best-practice answer: the contract is the authority on price, recipients and share, and access-gate-client already has the reads.
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** OQ8 had one best-practice answer: the contract is the authority on price, recipients and share, and access-gate-client already has the reads.
 
 - `useAccessGate` reads the `Gate` (`fetchGate`, parsed under the original id) and the `PlatformConfig` (`fetchPlatformConfig`) into `terms: PurchaseTerms` (`network`, `priceMist`, `operator {address, mist}`, `platform {address, mist}` from `gateCommissionMist`, `paused`, `soulbound`, `defaultUses`; operator + platform = price). It loads them when the ownership check finds no pass, and refuses a gate that is not a `Gate` of the pinned package or whose `soulbound` flag disagrees with the configured pass kind.
 - `AccessGateCta` takes `terms` (and `termsError`, `purchaseError`) and shows the exact payment (`formatCoinExact`, no rounding), the operator and platform payees with their shares, the network and the pass kind, before the wallet opens. The button is disabled until the terms are read, and while the gate is paused. The platform's share is labelled "Platform fee" (OQ9).
@@ -501,7 +501,7 @@ does not call them. Decision to carry (OQ8): whether the CTA reads the gate on-c
 
 ### F12 — Relay host validation and selection edge cases
 
-**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** `src/composables/useWalrusRelay.ts:52-95, 123-130, 157-163`; `src/lib/relay.ts:130-140`.
 
 **Issue:**
@@ -541,7 +541,7 @@ relay behind the Workers gateway, the public Mysten relay), so the exposure is a
 one. How the access proof is bound to the relay origin (audience-bound `nft-gate:access:v2` since
 walrus-client 0.0.26) is audited in walrus-client.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):**
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
 - `useWalrusRelay` validates both hosts at construction with `requireHttpsHost` and throws (`operator relay host` / `public relay host`), so a misconfigured operator host no longer reads as "unreachable" and hands out the free relay. `requireHttpsHost` allows plain http only for the `http:` scheme on `localhost`, `127.0.0.1` and `[::1]`.
 - Hosts are compared by origin (`relayOrigin`), so a trailing-slash or case variant of the same host is "no operator relay configured". Hosts given as a ref or getter are followed; an invalid later pair sets `configError`, offers no relay and shows a settings error in the widget instead of the pass prompt.
@@ -552,7 +552,7 @@ walrus-client 0.0.26) is audited in walrus-client.
 
 ### F13 — `SECURITY.md`, `package.json` description and UI copy are stale
 
-**Severity:** Low (`SECURITY.md`) / Info (the rest)   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Low (`SECURITY.md`) / Info (the rest)   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** `SECURITY.md:1-36`; `WalrusUpload.vue:462-466`; `package.json` `description`. (`README.md`, `AGENTS.md` and CLAUDE.md are current; see the re-verification.)
 
 **`SECURITY.md`:**
@@ -600,7 +600,7 @@ log).
 The approvals table below is unchanged; the new "Retry upload" path (F20) adds a fresh access proof
 (a signature) on retry.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):**
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
 - `SECURITY.md` is rewritten around `relayGateConfig` and the pinning in `useAccessGate`, access-gate-client and walrus-client: seven invariants (pinned deployment, no wallet or WASM import with the PTBs built only through access-gate-client builders, terms seen before signing, untrusted relay, fail-safe selection, no cross-account leak, no secrets). It no longer cites `nft-gate-client`, `PersonalMessageSigner` or the removed constants, and is published (`files`).
 - `package.json` `description` now reads "Built on @meddleware/walrus-client + @meddleware/access-gate-client".
@@ -609,7 +609,7 @@ The approvals table below is unchanged; the new "Retry upload" path (F20) adds a
 
 ### F14 — Coverage: the widget's money paths are untested
 
-**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Low   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** coverage report (2026-10-03; not re-measured 2026-10-09).
 
 | File | Statements | Untested paths |
@@ -635,7 +635,7 @@ component tests are still axe-only at the initial file step (`tests/components.t
 2026-10-03 percentages were not re-measured (no coverage plugin installed). `WalrusUpload.vue` grew by
 55 lines (the upload-retry path) with no test, so its figure will not have risen.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** 117 tests were added (44 to 161), mounted-component tests with a fake `performUpload` and the real relay composable over a stubbed `fetch` (only the two `@meddleware/ui` primitives are stand-ins, `tests/helpers/ui-stubs.ts`):
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** 117 tests were added (44 to 161), mounted-component tests with a fake `performUpload` and the real relay composable over a stubbed `fetch` (only the two `@meddleware/ui` primitives are stand-ins, `tests/helpers/ui-stubs.ts`):
 
 - `tests/walrus-upload.test.ts`: what is passed to the upload (bytes, relay host, epochs 1..53 clamp, Short/Max presets, permanence to `deletable`, `maxBytes`, no upload without a wallet, a plain failure); the cost line (storage in WAL following the epochs, relay fee, a stale storage estimate ignored, unknown / above-limit / no fee); the duplicate prompt (Extend, Certify, Upload a new copy with `force`, Cancel); the certify retry (success, declined again); the upload retry (success without a second `performUpload`, a new closure after a repeat failure, no further closure, hand-over to certify, cleared by a new upload); the approvals copy.
 - `tests/useWalrusRelay.test.ts`: `estimatedCost` and `relayFeeStatus` cases. `tests/useAccessGate.test.ts`: the purchase retry loop and the wait error. `tests/components.test.ts` (axe) now also covers the prompt's states.
@@ -672,7 +672,7 @@ component tests are still axe-only at the initial file step (`tests/components.t
 
 ### F16 — Cross-account and cross-network state in the widget
 
-**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:**
 
 - `useWalrusRelay(hosts, …)` copies `hosts.operator` / `hosts.public` at construction
@@ -703,7 +703,7 @@ because executors and the chain check fail closed (VUE-M6).
 - Clear `pendingCertify` and `bytes` on an account or network change (expose a `reset`).
 - Take `network` in `useAccessGate` and pass it to `getClient(network)`.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):**
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
 - `useWalrusRelay` accepts `hosts` and `access` as a value, ref or getter and follows them: a new host pair clears the selection, tip configs and health state and re-checks; a stale probe answer is discarded (generation counter). `WalrusUpload` passes getters, so a network switch or another network's gate wiring is followed without a remount.
 - `WalrusUpload` takes an optional `sessionKey`. A change of it, of the hosts, or a disconnect calls `resetSession()`: the file, the held certify and upload closures, the duplicate prompt and the error are dropped and the widget returns to the file step. An upload, certify retry or upload retry that finishes under an older session epoch reports nothing (no `uploaded`, no error, no retry offer) but still emits `settled`.
@@ -713,7 +713,7 @@ because executors and the chain check fail closed (VUE-M6).
 
 ### F17 — Packaging, CI and style details
 
-**Severity:** Info   **Disposition:** MITIGATED (0.1.31, 2026-10-10; commit pending: test files, lint and `npm ci` done; the unpinned integration refs remain)
+**Severity:** Info   **Disposition:** MITIGATED (0.1.31, 2026-10-10; commit `24d7c43`: test files, lint and `npm ci` done; the unpinned integration refs remain)
 
 - **Test files are published.** `files: ["src"]` ships `src/**/*.test.ts` (4 files) to npm
   (`npm pack --dry-run` 2026-10-09: 17 files, 24.1 kB, 4 tests). **RESOLVED in 0.1.31** (moved to `tests/`; TS-M7, B.TS-1). Low impact: consumers compile only what `src/index.ts` imports.
@@ -742,7 +742,7 @@ because executors and the chain check fail closed (VUE-M6).
 - **Dependabot.** Added in `fdbec17` (weekly, grouped npm minor/patch and actions). Merged tooling
   updates since: jsdom 30.1.2 and the npm-minor-patch group (`17b47d5`, `e49a95e`).
 
-**Resolution 2026-10-10 (0.1.31, commit pending):**
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
 - **Test files are published.** RESOLVED: the four `src/**/*.test.ts` files moved to `tests/` (with the others); `npm pack --dry-run` lists no test, gallery or e2e file (15 files), and the publish workflow fails the tag if one would be packed. `tests/` and `gallery/` are now type-checked (`tsconfig.json`).
 - **Publish verification.** RESOLVED: the `verify` job runs `npm run lint` and the Playwright contrast gate in addition to `npm ci`, the audit gate, type-check and tests; the npm client stays pinned.
@@ -836,11 +836,11 @@ a second registration (walrus-client F7). The widget had only the certify retry.
   countdown (residual, Info; that bound is walrus-client's and was read there, not exercised here).
 - Gaps at 0.1.30: no component test (F14); the pending closure survives an account switch (F16). Both closed in 0.1.31.
 
-**Update 2026-10-10 (0.1.31, commit pending):** the behaviour is now pinned by tests in `tests/walrus-upload.test.ts` (`same-registration upload retry (F20)`): the retry runs the app's closure and not `performUpload` again, a repeat failure keeps the offer on the new closure, a retry that lands but fails to certify hands over to the certify retry, and a held retry is dropped on a session change (F16). The gap noted above is closed.
+**Update 2026-10-10 (0.1.31, commit `24d7c43`):** the behaviour is now pinned by tests in `tests/walrus-upload.test.ts` (`same-registration upload retry (F20)`): the retry runs the app's closure and not `performUpload` again, a repeat failure keeps the offer on the new closure, a retry that lands but fails to certify hands over to the certify retry, and a held retry is dropped on a session change (F16). The gap noted above is closed.
 
 ### F21 — Colour contrast of the library's own compositions is not browser-checked (new 2026-10-09)
 
-**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** the scoped CSS of `TipConfigBadge.vue`, `AccessGateCta.vue` and `WalrusUpload.vue`.
 
 **Issue:** The VUE lens (2026-10-08) requires AA contrast in every theme x season combination,
@@ -860,7 +860,7 @@ tried. Cosmetic and accessibility, not a safety issue.
 `ui`/`design-tokens` (or in walrus-ui's e2e), across all theme x season combinations; confirm the
 link-in-text rule (the library renders no links in running text).
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** copied the approach of `ui` (Playwright + `@axe-core/playwright` over a gallery built with the real tokens and seasons): `gallery/` (a Vite page rendering the three components in every state, with fixture relays), `e2e/contrast.spec.ts`, `playwright.config.ts`, `vite.gallery.config.ts`, `npm run test:e2e`, a Node CI job and a step in the publish `verify` job.
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** copied the approach of `ui` (Playwright + `@axe-core/playwright` over a gallery built with the real tokens and seasons): `gallery/` (a Vite page rendering the three components in every state, with fixture relays), `e2e/contrast.spec.ts`, `playwright.config.ts`, `vite.gallery.config.ts`, `npm run test:e2e`, a Node CI job and a step in the publish `verify` job.
 
 - 70 tests: relay badge (up, linear, no tip, unknown, above limit, unreachable, checking, invalid host), purchase prompt (terms, busy, loading, error, paused with a purchase error) and the upload widget (file, options, review, retry, certify, duplicate dialog, progress dialog), each in light and dark x no season, spring, summer, autumn, winter, with WCAG 2.2 AA and best-practice tags. All pass.
 - It found one real defect: the duplicate dialog's buttons took Chromium's mid-grey native button background in the dark theme (2.2:1). They now set their own transparent surface and token text colours.
@@ -868,7 +868,7 @@ link-in-text rule (the library renders no links in running text).
 
 ### F22 — Caller-keyed lookup and unbounded tip-config body (TS lens; new 2026-10-09)
 
-**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** `src/lib/relay.ts:124-127, 143-147` (`WALRUS_AGGREGATOR_HOSTS[network]`);
 `relay.ts:109-113` and `useWalrusRelay.ts:84` (`res.json()`).
 
@@ -889,11 +889,11 @@ link-in-text rule (the library renders no links in running text).
 **Remediation / evidence:** guard the lookup with `Object.hasOwn`, read the tip-config as text with a
 small byte cap before `JSON.parse`, and add a test for each.
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** `walrusBlobUrl` looks the network up with `Object.hasOwn` and throws `unknown Walrus network` for `constructor`, `toString`, `__proto__` and the like. Both tip-config reads go through `fetchTipConfig`, which reads the body with `readBoundedJson` (a `content-length` check, then a streamed read that cancels at 16 KiB, `MAX_TIP_CONFIG_BYTES`); an oversized or non-JSON body is an unknown tip. Tests: `tests/relay.test.ts` (`bounded tip-config body (F22, TS-M2)`, including an endless stream that is stopped after a few chunks; `walrusBlobUrl network lookup (F22)`).
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** `walrusBlobUrl` looks the network up with `Object.hasOwn` and throws `unknown Walrus network` for `constructor`, `toString`, `__proto__` and the like. Both tip-config reads go through `fetchTipConfig`, which reads the body with `readBoundedJson` (a `content-length` check, then a streamed read that cancels at 16 KiB, `MAX_TIP_CONFIG_BYTES`); an oversized or non-JSON body is an unknown tip. Tests: `tests/relay.test.ts` (`bounded tip-config body (F22, TS-M2)`, including an endless stream that is stopped after a few chunks; `walrusBlobUrl network lookup (F22)`).
 
 ### F23 — Commission wording in `src` (placement rule; new 2026-10-09)
 
-**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit pending) (was DEFERRED at 0.1.30)
+**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`) (was DEFERRED at 0.1.30)
 **Where:** `src/constants.ts:19` (doc comment: "routes the platform commission to Meddleware's
 treasury").
 
@@ -1042,7 +1042,7 @@ production tree is clean.
 
 - [x] pure helpers and the selection policy tested; tip parsed for both modes and clamped (F1, F2)
 - [x] hosts https-checked (F4), blob ids encoded (F5); no wasm or wallet imports; no XSS sinks
-- [x] widget money paths tested (F14) — 0.1.31, commit pending: 161 tests, the widget mounted with a fake
+- [x] widget money paths tested (F14) — 0.1.31, commit `24d7c43`: 161 tests, the widget mounted with a fake
   `performUpload` (`tests/walrus-upload.test.ts`)
 
 ### pre-testnet *(in use on testnet; the items that were unmet at 0.1.30 are closed in 0.1.31)*
@@ -1053,11 +1053,11 @@ production tree is clean.
 - [x] no `VITE_*` read by the library; no secrets (A5)
 - [x] gated upload proven end to end: paywall e2e PASS 2026-10-09 on the live dashboard (gate
   `0x316f1bf9…faddc`)
-- [x] tip display distinguishes unknown from none (F9) — 0.1.31, commit pending: `RelayHealth.tipStatus`,
+- [x] tip display distinguishes unknown from none (F9) — 0.1.31, commit `24d7c43`: `RelayHealth.tipStatus`,
   badge and cost line, `tests/relay.test.ts`, `tests/badge-and-cta.test.ts`
-- [x] purchase uses on-chain price and pause state, with full disclosure (F11) — 0.1.31, commit pending:
+- [x] purchase uses on-chain price and pause state, with full disclosure (F11) — 0.1.31, commit `24d7c43`:
   `useAccessGate().terms`, `AccessGateCta`, `tests/useAccessGate.test.ts`
-- [x] `SECURITY.md` current (F13) — 0.1.31, commit pending
+- [x] `SECURITY.md` current (F13) — 0.1.31, commit `24d7c43`
 
 ### pre-mainnet
 
@@ -1067,22 +1067,22 @@ production tree is clean.
 - [x] chain-access boundary enforced by lint (F19, 0.1.27) and the paid-upload retry on the same
   registration (F20, 0.1.28)
 - [x] provenance on every release (0.1.27 to 0.1.30) and Dependabot on (`fdbec17`)
-- [x] gate-config pinning enforced at `useAccessGate` (F10, OQ7 answered) — 0.1.31, commit pending:
+- [x] gate-config pinning enforced at `useAccessGate` (F10, OQ7 answered) — 0.1.31, commit `24d7c43`:
   `assertPinnedGate`, `tests/constants.test.ts`, `tests/useAccessGate.test.ts`
-- [x] operator and public host validation at construction (F12) — 0.1.31, commit pending: `useWalrusRelay`
+- [x] operator and public host validation at construction (F12) — 0.1.31, commit `24d7c43`: `useWalrusRelay`
   throws for a non-https host; origin comparison; re-checks with backoff; public tip read
-- [x] tip display distinguishes unknown from none (F9) — 0.1.31, commit pending
-- [x] purchase uses on-chain price and pause state, with full disclosure (F11, OQ8 answered) — 0.1.31, commit pending
+- [x] tip display distinguishes unknown from none (F9) — 0.1.31, commit `24d7c43`
+- [x] purchase uses on-chain price and pause state, with full disclosure (F11, OQ8 answered) — 0.1.31, commit `24d7c43`
 - [x] `SECURITY.md`, the `package.json` description and the approvals copy current; commission wording in
-  `src` settled (F13, F23) — 0.1.31, commit pending; the one wording question left is OQ9
-- [x] widget money paths tested, including the upload retry (F14) — 0.1.31, commit pending
-- [x] widget state and hosts reset on account or network change (F16) — 0.1.31, commit pending: `sessionKey`,
+  `src` settled (F13, F23) — 0.1.31, commit `24d7c43`; the one wording question left is OQ9
+- [x] widget money paths tested, including the upload retry (F14) — 0.1.31, commit `24d7c43`
+- [x] widget state and hosts reset on account or network change (F16) — 0.1.31, commit `24d7c43`: `sessionKey`,
   reactive hosts and gate wiring, stale-result guard
-- [x] browser-checked contrast of the three components in every theme x season (F21) — 0.1.31, commit pending:
+- [x] browser-checked contrast of the three components in every theme x season (F21) — 0.1.31, commit `24d7c43`:
   `npm run test:e2e`, 70 tests, in Node CI and the publish `verify` job
 - [x] untrusted-input parsing bounded: `Object.hasOwn` lookup, capped tip-config body (F22, TS-M2) — 0.1.31,
-  commit pending
-- [x] test files out of the tarball; lint and `npm ci` in the release path (F17) — 0.1.31, commit pending (the
+  commit `24d7c43`
+- [x] test files out of the tarball; lint and `npm ci` in the release path (F17) — 0.1.31, commit `24d7c43` (the
   unpinned integration refs stay noted in F17)
 - [ ] external review — maintainer item (`OPERATOR_TASKS.md` "Funding, grants and an external audit")
 
@@ -1262,7 +1262,7 @@ production tree is clean.
   test reads the same objects through access-gate-client.
 
 
-**Resolution 2026-10-10 (0.1.31, commit pending):** the placement rule (`WHITE_LABEL_COMMISSION.md`: the revenue model is documented only there and on the docs./dev. sites) has one reading, so it was applied. The `relayGateConfig` comment no longer says where the commission goes; CLAUDE.md ("Gate config pinning"), README, AGENTS.md and `SECURITY.md` describe the pinning mechanism without the economics; a comment in `useWalrusRelay.ts` no longer calls the tip revenue. `grep -ni "commission\|white-label\|treasury\|revenue" src gallery README.md CLAUDE.md AGENTS.md SECURITY.md package.json` now finds only the access-gate-client API name `gateCommissionMist` (imported under the alias `gatePlatformShareMist`) and the on-chain field name `platform.treasury`, which are identifiers of the domain client, not economics language. The purchase prompt shows the platform's share as an amount read from the chain under the label "Platform fee"; whether that is within `WHITE_LABEL_COMMISSION.md` §4 is OQ9.
+**Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** the placement rule (`WHITE_LABEL_COMMISSION.md`: the revenue model is documented only there and on the docs./dev. sites) has one reading, so it was applied. The `relayGateConfig` comment no longer says where the commission goes; CLAUDE.md ("Gate config pinning"), README, AGENTS.md and `SECURITY.md` describe the pinning mechanism without the economics; a comment in `useWalrusRelay.ts` no longer calls the tip revenue. `grep -ni "commission\|white-label\|treasury\|revenue" src gallery README.md CLAUDE.md AGENTS.md SECURITY.md package.json` now finds only the access-gate-client API name `gateCommissionMist` (imported under the alias `gatePlatformShareMist`) and the on-chain field name `platform.treasury`, which are identifiers of the domain client, not economics language. The purchase prompt shows the platform's share as an amount read from the chain under the label "Platform fee"; whether that is within `WHITE_LABEL_COMMISSION.md` §4 is OQ9.
 
 ---
 
@@ -1306,8 +1306,7 @@ production tree is clean.
   - **Not fixed (no code changes in this pass):** F9–F14, F16, F21–F23 and the remainder of F17, each
     DEFERRED to a named Section D pre-mainnet gate.
   - **Not run:** the localnet integration suite (no localnet here).
-- **2026-10-10** — fix wave, on top of `05f1963` (after `e57b06e`, tag `v0.1.30`); the code is 0.1.31, commit
-  pending (the orchestrator fills in the hash, tags and publishes).
+- **2026-10-10** — fix wave, on top of `05f1963` (after `e57b06e`, tag `v0.1.30`); the code is 0.1.31, commit `24d7c43` (the orchestrator fills in the hash, tags and publishes).
   - **Dependencies bumped first:** `@meddleware/walrus-client` ^0.0.28, `@meddleware/access-gate-client` ^0.0.9,
     `@meddleware/design-tokens` ^0.1.10; the suite stayed green (44/44) before any change. Neither new walrus-client
     behaviour (declarations, `OwnedBlob.deletable`, conflict helpers) nor access-gate-client's create-gate
