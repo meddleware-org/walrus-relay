@@ -71,7 +71,7 @@ RUST, SITE, PLATFORM.
   and the same-registration upload retry (F20). The other second-pass findings (F9–F14, F16, and
   the rest of F17) and F21–F23 (new in the third pass: VUE, TS and placement-rule checks) were **not
   fixed in code** at 0.1.30; the 2026-10-10 fix wave resolves them in 0.1.31, except two residual items
-  named in F17 (integration refs) and OQ9 (a wording decision).
+  named in F17 (integration refs) and OQ9 (a wording decision, since decided: 2026-10-18).
 
 **Package manager / lockfile:** npm; `package-lock.json` committed.
 **Module format:** ESM.
@@ -182,15 +182,18 @@ lines of source), with 161 tests in 8 files at 0.1.31.
 | ADJUDICATED | F6 injected interfaces (by design) |
 | DEFERRED | none |
 | Positive | F8 fail-closed ownership, F18 selection policy and supply chain |
-| Answered | OQ1–OQ8 (recorded below); OQ9 open (a wording decision) |
+| Answered | OQ1–OQ9 (recorded below) |
 
 **Findings still outstanding at this pass** (all Info):
 
 - **F17 remainder — the integration workflow checks out `walrus-client` and `access-gate-sui` at
   `vars.*_REF || 'main'`.** Pinning a commit needs a choice of commit, shared with walrus-client's own CI.
-- **OQ9** — `WHITE_LABEL_COMMISSION.md` §4 says commission mechanics are not surfaced to end users beyond a
-  "small fee applies" framing; the purchase prompt now shows the platform's share as an amount read from the
-  chain, labelled "Platform fee". Maintainer to confirm the wording or adjust the document.
+- **OQ9** — `WHITE_LABEL_COMMISSION.md` §4 said commission mechanics are not surfaced to end users beyond a
+  "small fee applies" framing; the purchase prompt shows the platform's share as an amount read from the
+  chain, labelled "Platform fee". **(Decided 2026-10-18: keep the amount.** A signing prompt must show what
+  will move and to whom, and the wallet shows the same transfers. §4 governs documentation placement — the
+  model behind the figure stays out of user docs and package source — and was amended to say the purchase
+  prompt is not documentation.)
 - Maintainer and mainnet items: the `access_gate` mainnet deployment, the external review.
 
 ---
@@ -1237,7 +1240,7 @@ production tree is clean.
    `abortMessage`). One extra read of two objects when the ownership check finds no pass, and one before the
    wallet opens (0.1.31). The prompt discloses the platform's share as an amount under the label "Platform
    fee"; see OQ9.)*
-9. **OQ9** *(new, 2026-10-10)* `WHITE_LABEL_COMMISSION.md` §4 says commission mechanics are not surfaced
+9. **OQ9** *(new, 2026-10-10; **decided 2026-10-18: option (a), keep the amounts**, and §4 of `WHITE_LABEL_COMMISSION.md` was amended — the purchase prompt is not documentation)* `WHITE_LABEL_COMMISSION.md` §4 says commission mechanics are not surfaced
    to end users beyond the plain "a small fee applies" framing. The purchase prompt (F11) now names the
    platform's payee address and its share of the price, read from the chain, because a signing prompt that
    omits a recipient of the payment is the gap VUE-M4 describes. Options: (a) keep the amounts (recommended:
