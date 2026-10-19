@@ -1336,6 +1336,7 @@ production tree is clean.
   `^0.0.28`, access-gate-client `^0.0.9`, design-tokens `^0.1.10`, ui `^0.1.31`; eslint-config is still `^0.0.2` (0.0.3 is out).
   Still open: the unpinned integration refs (F17), OQ9, the mainnet deployment and the external review. No Section D box waited
   only on the release.
+- **2026-10-19** — live paywall run 2026-10-19: PASS — pass bought on the relay gate, consumed, v2 proof accepted, upload through the Worker, replay refused 409, strict decoder, indexer events; harness `integrations/paywall/` (infrastructure workspace).
 
 ## Pre-save consistency checklist (this pass)
 
