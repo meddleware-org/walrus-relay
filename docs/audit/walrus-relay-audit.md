@@ -1337,6 +1337,7 @@ production tree is clean.
   Still open: the unpinned integration refs (F17), OQ9, the mainnet deployment and the external review. No Section D box waited
   only on the release.
 - **2026-10-19** — live paywall run 2026-10-19: PASS — pass bought on the relay gate, consumed, v2 proof accepted, upload through the Worker, replay refused 409, strict decoder, indexer events; harness `integrations/paywall/` (infrastructure workspace).
+  - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 
 ## Pre-save consistency checklist (this pass)
 
