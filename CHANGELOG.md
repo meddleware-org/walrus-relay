@@ -4,6 +4,15 @@ All notable changes to `@meddleware/walrus-relay` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/). Before 0.2.0, breaking changes ship as patch releases.
 
+## [0.1.32] - 2026-10-19
+
+### Changed
+
+- `MAX_TIP_MIST` (the ceiling on a relay-reported tip) is now `5_000_000` MIST (0.005 SUI), down from 0.05 SUI, in
+  line with walrus-client 0.0.29's default `uploadRelayMaxTipMist`: about 8× the worst-case tip of the operator's
+  re-priced relay (`100_000` MIST + 1 MIST per encoded KiB; workspace cost model, decision D57). A relay reporting
+  a higher tip is shown as above the ceiling.
+
 ## [0.1.31] - 2026-10-10
 
 ### Changed (breaking, pre-v0.2)

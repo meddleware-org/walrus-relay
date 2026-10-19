@@ -272,11 +272,13 @@ describe('linear tip schedules', () => {
     expect(parseTipFromConfig(linear, 1023)).toBe(1_000_000n)
   })
 
-  it('stays under the ceiling at the 100 MiB edge cap', () => {
-    const cfg = parseTipConfig(linear)!
-    const tip = estimateTipMist(cfg, approxEncodedBytes(100 * 1024 * 1024))
+  it("keeps the operator relay's worst-case tip at about 1/8 of the ceiling at the 100 MiB edge cap", () => {
+    // The operator's schedule (workspace cost model, D57): 100_000 MIST + 1 MIST per encoded KiB.
+    const operator = parseTipConfig({ send_tip: { kind: { linear: { base: 100_000, encoded_size_mul_per_kib: 1 } } } })!
+    const tip = estimateTipMist(operator, approxEncodedBytes(100 * 1024 * 1024))
     expect(tip).not.toBeNull()
-    expect(tip! < 50_000_000n).toBe(true)
+    expect(tip! * 6n < MAX_TIP_MIST).toBe(true)
+    expect(tip! * 10n > MAX_TIP_MIST).toBe(true)
   })
 
   it('treats no_tip as zero', () => {

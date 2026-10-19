@@ -124,8 +124,9 @@ public, and the commission-routing ids are not env at all).
   `PUBLIC_UPLOAD_RELAY_HOSTS`.
 - **Aggregators:** `WALRUS_AGGREGATOR_HOSTS`, which duplicates walrus-client's, for `walrusBlobUrl` (looked up as an
   own key since 0.1.31, F22).
-- **Tip ceiling (display):** `MAX_TIP_MIST = 50_000_000n` (`src/lib/relay.ts`). The authoritative
-  cap is walrus-client's `uploadRelayMaxTipMist` (same 0.05 SUI default), enforced by the SDK.
+- **Tip ceiling (display):** `MAX_TIP_MIST = 5_000_000n` (`src/lib/relay.ts`, 0.005 SUI since 0.1.32; 0.05 SUI
+  before). The authoritative cap is walrus-client's `uploadRelayMaxTipMist` (same default from walrus-client
+  0.0.29), enforced by the SDK.
 - **Epoch default / maximum:** 53 / 53, clamped in the widget (`WalrusUpload.vue:96-99`).
 - **Deletable default:** **permanent**. It is an explicit, explained checkbox, ticked by default
   (`WalrusUpload.vue:93-95, 374-383`).
@@ -177,7 +178,7 @@ lines of source), with 161 tests in 8 files at 0.1.31.
 
 | Disposition | Findings |
 | --- | --- |
-| RESOLVED | F1 tip ceiling (0.05 SUI), F2 negative tips, F3 empty mainnet constants (superseded by `relayGateConfig`), F4 https hosts, F5 blob-id encoding, F7 optimistic decrement (removed), F9 tip display, F10 gate config pinned in `useAccessGate`, F11 on-chain price and full disclosure, F12 host validation and re-checks, F13 stale docs and copy, F14 widget tests, F15 unknown use count (0.1.27), F16 cross-account state, F19 chain-access lint boundary, F20 same-registration upload retry, F21 contrast gate, F22 bounded parsing, F23 placement rule |
+| RESOLVED | F1 tip ceiling (0.005 SUI since 0.1.32), F2 negative tips, F3 empty mainnet constants (superseded by `relayGateConfig`), F4 https hosts, F5 blob-id encoding, F7 optimistic decrement (removed), F9 tip display, F10 gate config pinned in `useAccessGate`, F11 on-chain price and full disclosure, F12 host validation and re-checks, F13 stale docs and copy, F14 widget tests, F15 unknown use count (0.1.27), F16 cross-account state, F19 chain-access lint boundary, F20 same-registration upload retry, F21 contrast gate, F22 bounded parsing, F23 placement rule |
 | MITIGATED | F17 packaging, CI and style (test files out of the tarball, lint and `npm ci` in the release path, peer floor and Sui CLI pin done; the unpinned integration refs remain) |
 | ADJUDICATED | F6 injected interfaces (by design) |
 | DEFERRED | none |
@@ -278,8 +279,9 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 
 **Severity:** Medium (first pass)   **Disposition:** RESOLVED (re-verified 2026-10-03 and 2026-10-09; `relay.ts` is unchanged since `f6085e9`)
 
-- `MAX_TIP_MIST` is now **0.05 SUI** (`relay.ts:16`), the same workspace ceiling as walrus-client's
-  default cap. The first pass recorded 1 SUI; it has been aligned since.
+- `MAX_TIP_MIST` is now **0.005 SUI** (`relay.ts:16`, 0.1.32), the same workspace ceiling as walrus-client's
+  default cap (D2 re-derived under D57: ≈ 8× the re-priced operator relay's worst-case tip). The first pass
+  recorded 1 SUI; it was 0.05 SUI from the alignment until 0.1.31.
 - `estimateTipMist` returns `null` above it (`:63-72`). Both `const` and `linear` modes are parsed.
 - Tests:
   - `accepts a tip exactly at the ceiling`;
@@ -1338,6 +1340,11 @@ production tree is clean.
   only on the release.
 - **2026-10-19** — live paywall run 2026-10-19: PASS — pass bought on the relay gate, consumed, v2 proof accepted, upload through the Worker, replay refused 409, strict decoder, indexer events; harness `integrations/paywall/` (infrastructure workspace).
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
+- 2026-10-19 — tip ceiling re-derived from the workspace cost model (`docs/economics/COST_MODEL.md`, D57):
+  `MAX_TIP_MIST` 50_000_000n → 5_000_000n, matching walrus-client 0.0.29. The edge-cap test now uses the operator's
+  new schedule (`100_000 + 1/KiB`) and pins the ceiling at 6–10× its worst-case tip. Version 0.1.32, commit pending;
+  F1 text and the tip-ceiling lines updated. Measured with Node 26.12.0: type-check, lint (css, js, html), 161/161
+  unit tests and the audit gate pass. No disposition changes.
 
 ## Pre-save consistency checklist (this pass)
 

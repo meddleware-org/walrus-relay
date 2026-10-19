@@ -6,14 +6,14 @@
 export type WalrusNetwork = 'testnet' | 'mainnet'
 
 /**
- * Defense-in-depth ceiling on a relay-reported tip: 0.05 SUI. A relay is untrusted and could report
+ * Defense-in-depth ceiling on a relay-reported tip: 0.005 SUI. A relay is untrusted and could report
  * an absurd or negative tip via `/v1/tip-config`. The authoritative cap is the client's
  * `uploadRelayMaxTipMist` (the SDK refuses a larger tip); this library surfaces the tip only as an
- * estimate, so it clamps to the same workspace-wide ceiling. 0.05 SUI is ~8× the worst-case tip of
- * the operator's linear relay (`1_000_000 + 10/KiB`) at the 100 MiB edge cap, so no legitimate tip
+ * estimate, so it clamps to the same workspace-wide ceiling. 0.005 SUI is ~8× the worst-case tip of
+ * the operator's linear relay (`100_000 + 1/KiB`) at the 100 MiB edge cap, so no legitimate tip
  * is rejected. Tips beyond this — or negative — are treated as "unknown" (`null`).
  */
-export const MAX_TIP_MIST = 50_000_000n
+export const MAX_TIP_MIST = 5_000_000n
 
 /** A relay's advertised tip schedule (MIST). */
 export type RelayTipConfig =
