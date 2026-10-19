@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "~4.14.0",
-    "@meddleware/eslint-config": "^0.0.2",
+    "@meddleware/eslint-config": "^0.0.3",
     "@mysten/sui": "^2.36.0",
     "@mysten/walrus": "~1.2.35",
     "@playwright/test": "~1.64.1",
