@@ -180,8 +180,8 @@ lines of source), with 161 tests in 8 files at 0.1.31.
 
 | Disposition | Findings |
 | --- | --- |
-| RESOLVED | F1 tip ceiling (0.005 SUI since 0.1.32), F2 negative tips, F3 empty mainnet constants (superseded by `relayGateConfig`), F4 https hosts, F5 blob-id encoding, F7 optimistic decrement (removed), F9 tip display, F10 gate config pinned in `useAccessGate`, F11 on-chain price and full disclosure, F12 host validation and re-checks, F13 stale docs and copy, F14 widget tests, F15 unknown use count (0.1.27), F16 cross-account state, F19 chain-access lint boundary, F20 same-registration upload retry, F21 contrast gate, F22 bounded parsing, F23 placement rule |
-| MITIGATED | F17 packaging, CI and style (test files out of the tarball, lint and `npm ci` in the release path, peer floor and Sui CLI pin done; the unpinned integration refs remain) |
+| RESOLVED | F1 tip ceiling (0.005 SUI since 0.1.32), F2 negative tips, F3 empty mainnet constants (superseded by `relayGateConfig`), F4 https hosts, F5 blob-id encoding, F7 optimistic decrement (removed), F9 tip display, F10 gate config pinned in `useAccessGate`, F11 on-chain price and full disclosure, F12 host validation and re-checks, F13 stale docs and copy, F14 widget tests, F15 unknown use count (0.1.27), F16 cross-account state, F17 packaging, CI and style (the integration refs are pinned, 2026-10-22), F19 chain-access lint boundary, F20 same-registration upload retry, F21 contrast gate, F22 bounded parsing, F23 placement rule |
+| MITIGATED | none |
 | ADJUDICATED | F6 injected interfaces (by design) |
 | DEFERRED | none |
 | Positive | F8 fail-closed ownership, F18 selection policy and supply chain |
@@ -189,8 +189,6 @@ lines of source), with 161 tests in 8 files at 0.1.31.
 
 **Findings still outstanding at this pass** (all Info):
 
-- **F17 remainder — the integration workflow checks out `walrus-client` and `access-gate-sui` at
-  `vars.*_REF || 'main'`.** Pinning a commit needs a choice of commit, shared with walrus-client's own CI.
 - **OQ9** — `WHITE_LABEL_COMMISSION.md` §4 said commission mechanics are not surfaced to end users beyond a
   "small fee applies" framing; the purchase prompt shows the platform's share as an amount read from the
   chain, labelled "Platform fee". **(Decided 2026-10-18: keep the amount.** A signing prompt must show what
@@ -722,7 +720,7 @@ because executors and the chain check fail closed (VUE-M6).
 
 ### F17 — Packaging, CI and style details
 
-**Severity:** Info   **Disposition:** MITIGATED (0.1.31, 2026-10-10; commit `24d7c43`: test files, lint and `npm ci` done; the unpinned integration refs remain)
+**Severity:** Info   **Disposition:** RESOLVED (0.1.31, 2026-10-10; commit `24d7c43`: test files, lint and `npm ci`; 2026-10-22, commit pending: the integration refs are pinned to commits)
 
 - **Test files are published.** `files: ["src"]` ships `src/**/*.test.ts` (4 files) to npm
   (`npm pack --dry-run` 2026-10-09: 17 files, 24.1 kB, 4 tests). **RESOLVED in 0.1.31** (moved to `tests/`; TS-M7, B.TS-1). Low impact: consumers compile only what `src/index.ts` imports.
@@ -737,8 +735,8 @@ because executors and the chain check fail closed (VUE-M6).
   - Sui CLI: **RESOLVED** in `614a25f` (2026-10-09): `testnet-v1.81.0` with a sha256 check of the
     installed binary (matches `Published.toml`). The `suiup` download is already checksummed.
   - `npm install`, not `npm ci` (`integration.yml:68`). **RESOLVED in 0.1.31** (`npm ci`).
-  - `walrus-client` and `access-gate-sui` are checked out at `vars.*_REF || 'main'`, which is
-    unpinned (`walrus-client-audit.md` F17). **Open.**
+  - `walrus-client` and `access-gate-sui` were checked out at `vars.*_REF || 'main'`, which is
+    unpinned (`walrus-client-audit.md` F17). **RESOLVED 2026-10-22** (below).
   - The localnet suite needs `.env.localnet`; it was not run here (no localnet in this environment).
 - **Hardcoded colours.** ADJUDICATED. The scoped CSS uses hex fallbacks, for example
   `var(--border, #ded6cf)`. They equal the light-theme token values in `@meddleware/design-tokens`
@@ -756,8 +754,21 @@ because executors and the chain check fail closed (VUE-M6).
 - **Test files are published.** RESOLVED: the four `src/**/*.test.ts` files moved to `tests/` (with the others); `npm pack --dry-run` lists no test, gallery or e2e file (15 files), and the publish workflow fails the tag if one would be packed. `tests/` and `gallery/` are now type-checked (`tsconfig.json`).
 - **Publish verification.** RESOLVED: the `verify` job runs `npm run lint` and the Playwright contrast gate in addition to `npm ci`, the audit gate, type-check and tests; the npm client stays pinned.
 - **Integration CI `npm install`.** RESOLVED: `npm ci`.
-- **Integration refs.** Still open: `walrus-client` and `access-gate-sui` are checked out at `vars.*_REF || 'main'`. Pinning to a commit needs a choice of commit that walrus-client's own localnet pin also makes (`walrus-client-audit.md` F17); no single commit is right for both repos, so it is left to the maintainer rather than guessed. Recommendation: set `WALRUS_CLIENT_REF` and `ACCESS_GATE_REF` repository variables to the SHAs the last green localnet run used, and bump them with the dependency.
+- **Integration refs.** At 0.1.31 these were checked out at `vars.*_REF || 'main'`; pinning needed a choice of commit and was left open. Recommendation then: pin to the SHAs a green run used, and bump them with the dependency. **Done 2026-10-22, below.**
 - `engines.node` is `>=24` (fleet decision D41; as nft-gate-client 0.0.17). The `CHANGELOG.md` and `SECURITY.md` ship in the tarball.
+
+**Resolution 2026-10-22 (CI only, no version change; commit pending):**
+
+- **Integration refs.** RESOLVED: `.github/workflows/integration.yml` now defaults `ref` to a commit for both siblings
+  (the `WALRUS_CLIENT_REF` and `ACCESS_GATE_REF` repository variables still override it for a trial run, and neither is
+  set): `walrus-client` `75cd12ac557153fbb50567791c7583c3c7d490dd` (`main` after v0.0.30, the localnet harness with the
+  pinned node image and the WAL funding that fails fast; v0.0.30 itself predates it) and `access-gate-sui`
+  `bf23517a1362e080e47ca96e4cc0aae4731dd366` (the commit of the `v0.0.7` tag, the current published tag). A comment in the
+  workflow says how to bump a pin: take the new SHA (`git rev-parse <tag>^{commit}`), set it, dispatch the workflow and
+  commit it with the proving run. Evidence: the dispatched run 39784066851 on `main` passed on 2026-10-22 with both pins in
+  place; actionlint clean. The earlier concern that no single commit suits both repos is settled by pinning each
+  sibling independently: the relay needs only the harness (walrus-client) and some `access_gate` the harness can deploy
+  (the harness reads the sibling checkout), not the same commit walrus-client's own CI pins (`83dbf25`, `v0.0.6`).
 
 ### F18 — Positive: selection policy, purchase guards, rendering and supply chain
 
@@ -993,7 +1004,7 @@ production tree is clean.
 | No test or gallery file in the tarball | Yes | `npm-publish.yml` packed-files check (F17; 0.1.31) |
 | `npm ci` in integration | Yes | `integration.yml` (F17; 0.1.31) |
 | Sui CLI pinned and checksummed in integration | Yes | `614a25f`: `testnet-v1.81.0`, sha256 check (F17) |
-| Integration refs pinned | No | `walrus-client` and `access-gate-sui` at `vars.*_REF \|\| 'main'` (F17) |
+| Integration refs pinned | Yes | `walrus-client` at `75cd12a`, `access-gate-sui` at the `v0.0.7` commit `bf23517`; the `vars.*_REF` variables override for a trial (F17; 2026-10-22, run 39784066851) |
 
 ### B.WAL coupling (WALRUS lens)
 
@@ -1091,8 +1102,7 @@ production tree is clean.
   `npm run test:e2e`, 70 tests, in Node CI and the publish `verify` job
 - [x] untrusted-input parsing bounded: `Object.hasOwn` lookup, capped tip-config body (F22, TS-M2) — 0.1.31,
   commit `24d7c43`
-- [x] test files out of the tarball; lint and `npm ci` in the release path (F17) — 0.1.31, commit `24d7c43` (the
-  unpinned integration refs stay noted in F17)
+- [x] test files out of the tarball; lint and `npm ci` in the release path (F17) — 0.1.31, commit `24d7c43`; integration refs pinned to commits 2026-10-22 (commit pending, run 39784066851)
 - [ ] external review — maintainer item (`OPERATOR_TASKS.md` "Funding, grants and an external audit")
 
 ---
@@ -1351,6 +1361,7 @@ production tree is clean.
   - Releases: 0.1.32 (`v0.1.32`, the tip ceiling, already described under F1) and 0.1.33 (`v0.1.33` = `d8a1412`; dependency bumps only: walrus-client `^0.0.30`, access-gate-client `^0.0.10`); npm `latest` 0.1.33 (read with `npm view`). The Deployment status gains the 0.1.33 line; the 0.1.32 "commit pending" is the tag.
   - OQ3 now records its answer (decided 2026-10-10: `useAccessGate` enforces the published deployment through `assertPinnedGate`, 0.1.31); OQ5 now records that `integration.yml` uses `npm ci` (`.github/workflows/integration.yml:68`, 0.1.31). Dispositions and counts unchanged.
   - Not re-run: the unit suite (the 0.1.33 commit's own CI); the live paywall path.
+- 2026-10-22 (fix wave, CI only) — **F17 RESOLVED:** the last open item, the integration workflow's unpinned sibling checkouts, is closed. `integration.yml` pins `walrus-client` to `75cd12a` and `access-gate-sui` to the `v0.0.7` commit (`bf23517`), with a comment on how to bump (see F17). Proof: the workflow dispatched on `main` passed (run 39784066851); actionlint clean. No package change, no version bump. Dispositions: F17 MITIGATED to RESOLVED; Section D unchanged (the tarball/CI box already cited F17 and now names the pins); open: OQ9 is decided (2026-10-18), the `access_gate` mainnet deployment and the external review are maintainer items.
 
 ## Pre-save consistency checklist (this pass)
 
