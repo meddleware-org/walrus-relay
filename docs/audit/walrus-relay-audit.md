@@ -27,7 +27,9 @@ RUST, SITE, PLATFORM.
 
 **Deployment status:**
 
-- Published: npm `@meddleware/walrus-relay` **0.1.31** (`latest`, published 2026-10-18T09:00Z), from tag
+- **2026-10-22: npm `latest` is 0.1.33** (tag `v0.1.33` = `d8a1412`): 0.1.32 (tag `v0.1.32`, 2026-10-19) lowered `MAX_TIP_MIST` to 0.005 SUI (F1); 0.1.33 takes `@meddleware/walrus-client` `^0.0.30` and `@meddleware/access-gate-client` `^0.0.10`
+  (the stale-indexer fallback, and `nft-gate-client` 0.0.18's rules including the gated flow's real challenge expiry; walrus-client audit F26). No source change in this package for 0.1.33. Consumers: walrus-ui 0.1.61 and token-deployer-ui 0.0.38 at `^0.1.33`.
+- Published (the 2026-10-18 release of the fix wave): npm `@meddleware/walrus-relay` **0.1.31** (published 2026-10-18T09:00Z), from tag
   `v0.1.31` = `2cf8b18` (code in `24d7c43` and the version-bump commit `4aa217d`; the two commits after it touch only this audit), with
   an SLSA v1 provenance attestation (`dist.attestations`, checked 2026-10-18). 0.1.30 (tag `v0.1.30` =
   `e57b06e`, attested like 0.1.27 to 0.1.29) was the version of the 2026-10-09 pass.
@@ -1217,13 +1219,12 @@ production tree is clean.
    *(Decided: yes. `MAX_TIP_MIST`, now aligned to 0.05 SUI — F1.)*
 3. **OQ3** *(first pass)* What guarantees the app derives `gate.packageId` / `platformConfigId` from
    the constants? *(2026-10-03: partly answered by `relayGateConfig` — the package and
-   `PlatformConfig` cannot be passed to it. Not enforced at `useAccessGate`; reopened as F10 / OQ7.)*
+   `PlatformConfig` cannot be passed to it. Not enforced at `useAccessGate`; reopened as F10 / OQ7. **Decided 2026-10-10 (0.1.31):** enforced — `useAccessGate` runs `assertPinnedGate` against `accessGateDeployment(network)`, see OQ7 and F10.)*
 4. **OQ4** *(first pass)* Pin `nft-gate-client` exactly?
    *(2026-10-03: superseded. PTBs come from access-gate-client, at `^0.0.8` then (`^0.0.9` in 0.1.31), which for a 0.0.x range
    admits only that one version; the version is bumped in step with each `access-gate-sui` publication.)*
 5. **OQ5** *(first pass)* CI hardening (`npm ci`, audit)?
-   *(Done in Node CI and publish, with the expiring-allowlist gate. The integration workflow still uses
-   `npm install` — F17.)*
+   *(Done in Node CI and publish, with the expiring-allowlist gate, and since 0.1.31 in the integration workflow too: `integration.yml` runs `npm ci` — F17; checked 2026-10-22.)*
 6. **OQ6** *(first pass)* Re-check ownership instead of an optimistic decrement?
    *(2026-10-03: superseded. The decrement was removed and consume moved to walrus-client — F7.)*
 7. **OQ7** *(new)* F10: enforce Meddleware's deployment inside `useAccessGate` (blocking white-label
@@ -1346,6 +1347,11 @@ production tree is clean.
   F1 text and the tip-ceiling lines updated. Measured with Node 26.12.0: type-check, lint (css, js, html), 161/161
   unit tests and the audit gate pass. No disposition changes.
 
+- 2026-10-22 (audit close-out) — release status and stale open-question text; no code change.
+  - Releases: 0.1.32 (`v0.1.32`, the tip ceiling, already described under F1) and 0.1.33 (`v0.1.33` = `d8a1412`; dependency bumps only: walrus-client `^0.0.30`, access-gate-client `^0.0.10`); npm `latest` 0.1.33 (read with `npm view`). The Deployment status gains the 0.1.33 line; the 0.1.32 "commit pending" is the tag.
+  - OQ3 now records its answer (decided 2026-10-10: `useAccessGate` enforces the published deployment through `assertPinnedGate`, 0.1.31); OQ5 now records that `integration.yml` uses `npm ci` (`.github/workflows/integration.yml:68`, 0.1.31). Dispositions and counts unchanged.
+  - Not re-run: the unit suite (the 0.1.33 commit's own CI); the live paywall path.
+
 ## Pre-save consistency checklist (this pass)
 
 - [x] Section A ↔ findings: rows cite the findings that now hold (F9–F14, F16, F17); A11 no longer a GAP.
@@ -1356,3 +1362,4 @@ production tree is clean.
 - [x] Executive summary ↔ dispositions and ceiling (realised Low; nothing open above Info).
 - [x] C.1: test count re-run 2026-10-10 (161/161); coverage percentages are from 2026-10-03 and stated as such.
 - [x] Re-verification log entry added.
+- [x] 2026-10-22 (close-out): Deployment status, OQ3 and OQ5 text and the log updated; no disposition changes.
