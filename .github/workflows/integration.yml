@@ -3,6 +3,12 @@ name: Integration (localnet)
 # Opt-in localnet e2e for the relay library — probes the real upload-relay and drives the access-gate
 # ownership check against the localnet access_gate. Kept off the PR path. The localnet substrate lives
 # in the walrus-client repo (single source of truth), cloned here at a pinned ref.
+#
+# Both sibling checkouts are pinned to commits, not to `main`, so a change in a sibling cannot turn this
+# nightly red (or green) unseen. To bump a pin: take the new commit (or the commit of the release tag:
+# `git rev-parse <tag>^{commit}` in the sibling), set it in the `ref` below (or set the repository variable
+# named in the expression, which overrides it for a trial run), dispatch this workflow, and commit the new
+# SHA with the run that proved it.
 on:
   workflow_dispatch:
   schedule:
@@ -26,14 +32,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: meddleware-org/walrus-client
-          ref: ${{ vars.WALRUS_CLIENT_REF || 'main' }}
+          # walrus-client `main` at 75cd12a, the localnet harness with the pinned node image and the WAL
+          # funding that fails fast (after v0.0.30; use the next tag's commit once it is released).
+          ref: ${{ vars.WALRUS_CLIENT_REF || '75cd12ac557153fbb50567791c7583c3c7d490dd' }}
           path: repos/walrus-client
 
       - name: Checkout access-gate-sui (sibling, for the localnet gate deploy)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: meddleware-org/access-gate-sui
-          ref: ${{ vars.ACCESS_GATE_REF || 'main' }}
+          # The commit of the access-gate-sui v0.0.7 tag.
+          ref: ${{ vars.ACCESS_GATE_REF || 'bf23517a1362e080e47ca96e4cc0aae4731dd366' }}
           path: repos/access-gate-sui
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
