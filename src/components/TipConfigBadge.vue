@@ -5,7 +5,7 @@ import { ref, onMounted, watch } from 'vue'
 import { formatCoinExact, probeRelay, type RelayHealth } from '../lib/relay.js'
 
 const props = defineProps<{
-  /** The relay host URL to probe (e.g. `https://sui-walrus-relay.example.com`). */
+  /** The relay host URL to probe (e.g. `https://sui-walrus-storage-relay.example.com`). */
   host: string
 }>()
 

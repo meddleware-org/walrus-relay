@@ -1,7 +1,7 @@
 // Localnet integration for the relay library: probe the real upload-relay and read the access-gate
 // objects the way `useAccessGate` does (ownership by exact type, the Gate and the PlatformConfig for the
 // purchase terms), against the localnet access_gate deployment. Gated by WALRUS_LOCALNET — the suite
-// skips when ../walrus-client/localnet/.env.localnet has not been sourced, so `npm test` stays green.
+// skips when ../walrus-storage-client/localnet/.env.localnet has not been sourced, so `npm test` stays green.
 //
 // `useAccessGate` itself refuses any package other than the published testnet/mainnet deployment, so a
 // localnet gate cannot be driven through it; this suite calls the same access-gate-client reads.
@@ -18,7 +18,7 @@ import { probeRelay } from '../../src/lib/relay.js'
 
 const READY = process.env.WALRUS_LOCALNET === '1' && !!process.env.WALRUS_RELAY_HOST
 
-describe.skipIf(!READY)('walrus-relay localnet relay', () => {
+describe.skipIf(!READY)('walrus-storage-kit localnet relay', () => {
   it('probes the localnet upload-relay as accessible (tip disabled ⇒ none)', async () => {
     const health = await probeRelay(process.env.WALRUS_RELAY_HOST!)
     expect(health.accessible).toBe(true)
@@ -31,7 +31,7 @@ describe.skipIf(!READY)('walrus-relay localnet relay', () => {
 const GATE_READY =
   READY && !!process.env.ACCESS_GATE_ID && !!process.env.ACCESS_GATE_PACKAGE_ID && !!process.env.WALRUS_TEST_ADDRESS
 
-describe.skipIf(!GATE_READY)('walrus-relay localnet access gate', () => {
+describe.skipIf(!GATE_READY)('walrus-storage-kit localnet access gate', () => {
   const pkg = process.env.ACCESS_GATE_PACKAGE_ID!
   const rpc = () => new SuiGrpcClient({ network: 'localnet', baseUrl: process.env.WALRUS_RPC_URL! })
 

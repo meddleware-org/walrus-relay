@@ -53,7 +53,7 @@ vi.mock('../src/lib/relay.js', async (importOriginal) => ({
   probeRelay: async () => ({ accessible: false, tip: null, tipStatus: 'unknown', tipKind: null }),
 }))
 
-describe('walrus-relay components (axe)', () => {
+describe('walrus-storage-kit components (axe)', () => {
   it('WalrusUpload (initial file step) has no violations', async () => {
     const w = mount(WalrusUpload, {
       props: {

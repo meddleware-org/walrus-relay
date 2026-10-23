@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { markRaw, ref } from 'vue'
-import { attachCertifyRetry, attachDuplicateExisting, attachUploadRetry, type BlobUploadResult } from '@meddleware/walrus-client/flow'
+import { attachCertifyRetry, attachDuplicateExisting, attachUploadRetry, type BlobUploadResult } from '@meddleware/walrus-storage-client/flow'
 import { AccessGateCta, TipConfigBadge, WalrusUpload, type PurchaseTerms } from '../src/index'
 
 const props = defineProps<{ view: string; fail: string }>()
@@ -52,7 +52,7 @@ const estimateStorageCost = async (_size: number, epochs: number): Promise<bigin
 
 <template>
   <main>
-    <h1>walrus-relay gallery</h1>
+    <h1>walrus-storage-kit gallery</h1>
 
     <section v-if="view === 'badges'">
       <h2>Relay badge</h2>

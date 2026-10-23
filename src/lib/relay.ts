@@ -251,7 +251,7 @@ export function walrusBlobUrl(network: WalrusNetwork, blobId: string, aggregator
  * Largest single `reserve_space` reservation Walrus accepts (`max_epochs_ahead`,
  * 53 on testnet/mainnet; ~2 years at the ~2-week epoch cadence). Kept here — a
  * light module with no `@mysten/walrus` import — so importing a widget never
- * pulls the Walrus wasm chunk into the eager bundle (see token-deployer
+ * pulls the Walrus wasm chunk into the eager bundle (see token-issuance
  * invariant #5). Longer retention needs `extendBlobLifetime` (operator step).
  */
 export const MAX_SINGLE_RESERVATION_EPOCHS = 53

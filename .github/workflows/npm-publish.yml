@@ -48,7 +48,7 @@ jobs:
           "
 
   publish-npm:
-    name: npmjs (@meddleware/walrus-relay)
+    name: npmjs (@meddleware/walrus-storage-kit)
     needs: verify
     runs-on: ubuntu-latest
     permissions:

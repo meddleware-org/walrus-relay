@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Generic Walrus blob-upload widget. UI + orchestration only — the heavy
 // `@mysten/walrus` client and the wallet live in the consuming app, injected via
-// `performUpload`. This keeps `@meddleware/walrus-relay` free of wasm/wallet
+// `performUpload`. This keeps `@meddleware/walrus-storage-kit` free of wasm/wallet
 // deps (preserving the lazy-load boundary) and wallet-agnostic. Relay selection +
 // tip estimation come from `useWalrusRelay`.
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
@@ -21,7 +21,7 @@ import {
   type ExistingCopy,
   type UploadProgress,
   type UploadStepKey,
-} from '@meddleware/walrus-client/flow'
+} from '@meddleware/walrus-storage-client/flow'
 import { MAX_SINGLE_RESERVATION_EPOCHS, formatCoinAmount } from '../lib/relay.js'
 
 const props = withDefaults(

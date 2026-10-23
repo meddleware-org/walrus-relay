@@ -1,19 +1,19 @@
-# @meddleware/walrus-relay
+# @meddleware/walrus-storage-kit
 
 [![License: 0BSD](https://img.shields.io/badge/license-0BSD-blue)](LICENSE)
 
 Shared Vue 3 UI for the Walrus upload relay: relay selection + tip estimation, NFT-gate access,
-and a blob-upload widget. Built on [`@meddleware/walrus-client`](https://github.com/meddleware-org/walrus-client)
+and a blob-upload widget. Built on [`@meddleware/walrus-storage-client`](https://github.com/meddleware-org/walrus-storage-client)
 (its `./flow` upload conventions) and [`@meddleware/access-gate-client`](https://github.com/meddleware-org/access-gate-client)
 (gate reads and the purchase/consume transactions).
 
-Consumed by [`@meddleware/walrus-ui`](https://github.com/meddleware-org/walrus-ui) (the standalone
-uploader) and the token-deployer app (icon upload), so the relay logic lives in exactly one place.
+Consumed by [`@meddleware/walrus-storage-ui`](https://github.com/meddleware-org/walrus-storage-ui) (the standalone
+uploader) and the token-issuance app (icon upload), so the relay logic lives in exactly one place.
 
 ## Install
 
 ```bash
-npm install @meddleware/walrus-relay
+npm install @meddleware/walrus-storage-kit
 ```
 
 The package ships TypeScript/SFC source (no build step); your app's bundler compiles it. At your
@@ -28,7 +28,7 @@ import '@meddleware/design-tokens/tokens.css' // defines the CSS vars used here
 | Export | Kind | Purpose |
 |---|---|---|
 | `useWalrusRelay(hosts, access?)` | composable | Relay selection + `/v1/tip-config` health check (re-checked with backoff when it fails) + cost estimate. `hosts` = `{ operator, public }` as a value, ref or getter; both must be https (plain http only on loopback) or it throws. |
-| `useAccessGate({ network, gate, getClient })` | composable | NFT-gate ownership, the purchase terms read from the chain (`terms`), purchase and the consume builder. `gate: RelayGateConfig \| null` (null ⇒ open); a config that is not the published deployment for `network` throws. Relay access for an upload is `createGatedAccess` from `@meddleware/walrus-client/flow`, given `buildConsume`. |
+| `useAccessGate({ network, gate, getClient })` | composable | NFT-gate ownership, the purchase terms read from the chain (`terms`), purchase and the consume builder. `gate: RelayGateConfig \| null` (null ⇒ open); a config that is not the published deployment for `network` throws. Relay access for an upload is `createGatedAccess` from `@meddleware/walrus-storage-client/flow`, given `buildConsume`. |
 | `relayGateConfig(network, { gateId, soulbound })` | fn | The gate config, with the package and `PlatformConfig` fixed to the published deployment. The price is read from the gate on the chain. |
 | `WalrusUpload` | component | File picker + relay selector + upload. App injects `performUpload` (keeps `@mysten/walrus` + wallet out of this package). Pass `sessionKey` (for example `${network}:${address}`) so a change of account or network discards the file and any held retry. |
 | `TipConfigBadge` | component | Live relay reachability + tip badge (a figure, "no tip", "unknown" or "above the limit"). |
@@ -42,7 +42,7 @@ import '@meddleware/design-tokens/tokens.css' // defines the CSS vars used here
 - **Injection over import.** `WalrusUpload` takes a `performUpload(bytes, { relayHost, onStatus })`
   callback rather than importing `@mysten/walrus` or a wallet. This keeps the package light,
   wallet-agnostic, and preserves the lazy-load boundary (the app decides when to pull the wasm
-  chunk). The app wires `performUpload` with `runBlobUpload` from `@meddleware/walrus-client/flow`.
+  chunk). The app wires `performUpload` with `runBlobUpload` from `@meddleware/walrus-storage-client/flow`.
   The progress, result, certify-retry and existing-copy types are that subpath's.
 - **Parameterized hosts.** `useWalrusRelay` takes the operator/public host pair so each app injects
   its own relay hostnames for the active network.

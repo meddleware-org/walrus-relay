@@ -1,8 +1,8 @@
-# AGENTS.md — @meddleware/walrus-relay
+# AGENTS.md — @meddleware/walrus-storage-kit
 
 ## Package
 
-`@meddleware/walrus-relay` — Vue 3 component library for the Walrus upload relay UI.  
+`@meddleware/walrus-storage-kit` — Vue 3 component library for the Walrus upload relay UI.  
 Previously published as `@meddleware/walrus-relay-ui`.
 
 ## Key files
@@ -30,10 +30,10 @@ npm test              # vitest unit tests
 
 See `package.json` (the version was reset to `0.1.0` on the rename from `@meddleware/walrus-relay-ui`).
 
-## Relation to walrus-ui
+## Relation to walrus-storage-ui
 
-`@meddleware/walrus-ui` is the standalone SPA that consumes this library.
-`@meddleware/walrus-relay` is the pure library — no app entry point, no Vite config.
+`@meddleware/walrus-storage-ui` is the standalone SPA that consumes this library.
+`@meddleware/walrus-storage-kit` is the pure library — no app entry point, no Vite config.
 
 ## Gate config invariant
 

@@ -1,14 +1,14 @@
-# CLAUDE.md — @meddleware/walrus-relay
+# CLAUDE.md — @meddleware/walrus-storage-kit
 
 ## What this package is
 
 A Vue 3 component library providing UI primitives for the Meddleware Walrus upload relay:
 relay selection + tip estimation, NFT-gate access control (purchase CTA + ownership check),
-and a blob-upload widget. Used by `@meddleware/walrus-ui` (the standalone app) and by the
-token-deployer app for image upload.
+and a blob-upload widget. Used by `@meddleware/walrus-storage-ui` (the standalone app) and by the
+token-issuance app for image upload.
 
 **Package name history:** Previously published as `@meddleware/walrus-relay-ui`; renamed to
-`@meddleware/walrus-relay` v0.1.0 for consistency with the `walrus-relay` repo name.
+`@meddleware/walrus-storage-kit` v0.1.0 for consistency with the `walrus-relay` repo name.
 
 ## Gate config pinning (do not change)
 
@@ -46,13 +46,13 @@ They change only when `access-gate-sui` publishes a new deployment record. Bump
   eager bundle.
 - **No wallet dependency.** The library is wallet-agnostic. `purchase` accepts an injected
   `GateExecutor` and apps wire in their wallet adapters. Relay access for an upload (consume +
-  signed proof, resumable) is `createGatedAccess` in `@meddleware/walrus-client/flow`, fed this
+  signed proof, resumable) is `createGatedAccess` in `@meddleware/walrus-storage-client/flow`, fed this
   composable's `buildConsume`.
-- **Upload conventions come from `@meddleware/walrus-client/flow`.** `UploadProgress`,
+- **Upload conventions come from `@meddleware/walrus-storage-client/flow`.** `UploadProgress`,
   `UploadStepKey`, `BlobUploadResult`, `ExistingCopy`, `getCertifyRetry` and
   `getDuplicateExisting` are defined there and imported here. The stepper catalogue
   (`CORE_UPLOAD_STEPS`, `GATED_UPLOAD_STEPS`) is UI and stays here. Import only the `./flow`
-  subpath, never the walrus-client root, which pulls the wasm client.
+  subpath, never the walrus-storage-client root, which pulls the wasm client.
 - **No build step.** Ships TypeScript source directly (resolved by the consuming app's
   bundler via `"exports": { ".": { "default": "./src/index.ts" } }`).
 - **Modals use `@meddleware/ui`'s `UiDialog`.** `WalrusUpload`'s blocking progress dialog is
@@ -80,7 +80,7 @@ Operator relay URLs are NOT hardcoded here. They are passed by the consuming app
 `parseTipFromConfig`, `probeRelay`, `walrusBlobUrl`, `WALRUS_AGGREGATOR_HOSTS`, and
 `MAX_SINGLE_RESERVATION_EPOCHS` live in `src/lib/relay.ts`. This module has no Vue or
 `@mysten/walrus` import — it's safe to consume from non-Vue contexts (e.g. the
-token-deployer app's non-reactive utils).
+token-issuance app's non-reactive utils).
 
 ## What operators CAN configure (via the consuming app's env vars)
 
@@ -103,7 +103,7 @@ first). This is the right default when users hold at most one valid NFT per gate
 When multi-NFT wallets become common (e.g. users bulk-buying upload capacity), a picker UI
 should be added so the user can see all held NFTs for the current gate (objectId, variant)
 and explicitly select which one to consume. The composable already surfaces `nftId` reactively;
-extending it to `nftIds: Ref<string[]>` and wiring a selection UI in `WalrusView.vue` is the
+extending it to `nftIds: Ref<string[]>` and wiring a selection UI in `WalrusStorageView.vue` is the
 implementation path. Until then, auto-selection is intentional.
 
 Separately: preventing a user from holding more than one NFT per gate should be enforced

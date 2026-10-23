@@ -2,20 +2,20 @@
 
 ## Scope
 
-This policy covers security issues in the `@meddleware/walrus-relay` package source (`src/**`) —
+This policy covers security issues in the `@meddleware/walrus-storage-kit` package source (`src/**`) —
 relay selection and tip estimation (`src/lib/relay.ts`, `useWalrusRelay`), the access-gate composable
 (`useAccessGate`: ownership, the purchase terms and the purchase), `relayGateConfig`, and the
 tip/badge/upload/purchase components.
 
 It does not cover:
 
-- The first-party `@meddleware/*` dependencies it builds on (`access-gate-client`, `walrus-client`,
+- The first-party `@meddleware/*` dependencies it builds on (`access-gate-client`, `walrus-storage-client`,
   `ui`, `design-tokens` — see their own policies) or `@mysten/sui`
 - The consuming app's injected wallet executor (`GateExecutor`), Walrus client (`performUpload`), Sui
   client (`getClient`) and relay hosts — the app is the trusted embedder
 - The authoritative tip cap, which lives app-side in `createWalrusClient`
-  (`VITE_UPLOAD_RELAY_MAX_TIP_MIST`) and in walrus-client
-- Access proofs: they are built by `@meddleware/walrus-client` (with `@meddleware/nft-gate-client`) and
+  (`VITE_UPLOAD_RELAY_MAX_TIP_MIST`) and in walrus-storage-client
+- Access proofs: they are built by `@meddleware/walrus-storage-client` (with `@meddleware/access-gate-gateway-client`) and
   verified by the gateway, not here
 
 ## Security model (invariants)

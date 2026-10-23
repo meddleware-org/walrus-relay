@@ -1,10 +1,10 @@
-// @meddleware/walrus-relay — shared Vue 3 UI for the Walrus upload relay.
+// @meddleware/walrus-storage-kit — shared Vue 3 UI for the Walrus upload relay.
 //
 // Consumers must import the design tokens once at their entry:
 //   import '@meddleware/design-tokens/tokens.css'
 //
 // Composables are parameterized (hosts / gate config injected) so both the
-// standalone relay app and the token-deployer share one implementation.
+// standalone relay app and the token-issuance share one implementation.
 
 export { default as WalrusUpload } from './components/WalrusUpload.vue'
 export { default as TipConfigBadge } from './components/TipConfigBadge.vue'
@@ -59,4 +59,4 @@ export {
 } from './lib/upload-steps.js'
 export type { UploadStepDef } from './lib/upload-steps.js'
 // The upload conventions (progress, result, certify retry, existing copy) live in
-// `@meddleware/walrus-client/flow`; import them from there.
+// `@meddleware/walrus-storage-client/flow`; import them from there.

@@ -84,7 +84,7 @@ export interface GateExecutor {
  * When `gate` is `null` the relay is treated as OPEN (`hasAccess === true`) and the composable
  * is inert. When a gate IS configured, `checkOwnership` decides access and `purchase` buys a
  * pass. Relay access for an upload (consume + signed proof, with resume) is
- * `createGatedAccess` from `@meddleware/walrus-client/flow`, given this composable's
+ * `createGatedAccess` from `@meddleware/walrus-storage-client/flow`, given this composable's
  * `buildConsume`.
  */
 /** How long a submitted-but-not-yet-visible purchase blocks buying again (2 minutes). */

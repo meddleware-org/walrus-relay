@@ -1,7 +1,7 @@
 # Security Audit — `walrus-relay`
 
 **Classification:** Internal security review (awaiting external review)
-**Project:** walrus-relay (`@meddleware/walrus-relay`) — the shared Vue 3 UI library for the Walrus
+**Project:** walrus-relay (`@meddleware/walrus-storage-kit`) — the shared Vue 3 UI library for the Walrus
 upload relay.
 
 - relay selection and tip estimation (`useWalrusRelay`, `lib/relay.ts`, `TipConfigBadge`);
@@ -9,7 +9,7 @@ upload relay.
   `@meddleware/access-gate-client`;
 - the commission-pinned gate config (`relayGateConfig`);
 - the upload widget (`WalrusUpload`), which drives an app-injected `performUpload`, normally
-  `@meddleware/walrus-client/flow`.
+  `@meddleware/walrus-storage-client/flow`.
 
 **Project type:** UI library (Vue 3 SFCs + composables; ships TypeScript/SFC source, no build step)
 **Template:**
@@ -20,26 +20,26 @@ upload relay.
 - AUDIT_TEMPLATE_SUI_CLIENT.md (2026-10-08)
 - AUDIT_TEMPLATE_TS.md (2026-10-08)
 
-Not triggered: AUTH (no credentials; access proofs live in walrus-client and nft-gate-client), SEAL,
-OPS (the integration workflow reuses walrus-client's localnet harness, audited there; it publishes
+Not triggered: AUTH (no credentials; access proofs live in walrus-storage-client and access-gate-gateway-client), SEAL,
+OPS (the integration workflow reuses walrus-storage-client's localnet harness, audited there; it publishes
 nothing to a real chain), IMG (no image; the library is not deployed from one), PROXY, WORKERS, GO,
 RUST, SITE, PLATFORM.
 
 **Deployment status:**
 
-- **2026-10-22: npm `latest` is 0.1.33** (tag `v0.1.33` = `d8a1412`): 0.1.32 (tag `v0.1.32`, 2026-10-19) lowered `MAX_TIP_MIST` to 0.005 SUI (F1); 0.1.33 takes `@meddleware/walrus-client` `^0.0.30` and `@meddleware/access-gate-client` `^0.0.10`
-  (the stale-indexer fallback, and `nft-gate-client` 0.0.18's rules including the gated flow's real challenge expiry; walrus-client audit F26). No source change in this package for 0.1.33. Consumers: walrus-ui 0.1.61 and token-deployer-ui 0.0.38 at `^0.1.33`.
-- Published (the 2026-10-18 release of the fix wave): npm `@meddleware/walrus-relay` **0.1.31** (published 2026-10-18T09:00Z), from tag
+- **2026-10-22: npm `latest` is 0.1.33** (tag `v0.1.33` = `d8a1412`): 0.1.32 (tag `v0.1.32`, 2026-10-19) lowered `MAX_TIP_MIST` to 0.005 SUI (F1); 0.1.33 takes `@meddleware/walrus-storage-client` `^0.0.30` and `@meddleware/access-gate-client` `^0.0.10`
+  (the stale-indexer fallback, and `access-gate-gateway-client` 0.0.18's rules including the gated flow's real challenge expiry; walrus-storage-client audit F26). No source change in this package for 0.1.33. Consumers: walrus-storage-ui 0.1.61 and token-issuance-ui 0.0.38 at `^0.1.33`.
+- Published (the 2026-10-18 release of the fix wave): npm `@meddleware/walrus-storage-kit` **0.1.31** (published 2026-10-18T09:00Z), from tag
   `v0.1.31` = `2cf8b18` (code in `24d7c43` and the version-bump commit `4aa217d`; the two commits after it touch only this audit), with
   an SLSA v1 provenance attestation (`dist.attestations`, checked 2026-10-18). 0.1.30 (tag `v0.1.30` =
   `e57b06e`, attested like 0.1.27 to 0.1.29) was the version of the 2026-10-09 pass.
 - Fix wave 2026-10-10, released as **0.1.31** on 2026-10-18: fixes F9–F14, F16, F17
   (except the integration refs), F21–F23 and the open Section D code gates. It is breaking for the consumers
   (pre-v0.2: patch bump): `useAccessGate` takes `network`, the price is no longer configured, `AccessGateCta`
-  takes `terms`; walrus-ui and token-deployer-ui have the matching bump.
+  takes `terms`; walrus-storage-ui and token-issuance-ui have the matching bump.
 - Consumers, at `^0.1.31` (bumped 2026-10-18; both lockfiles resolve 0.1.31; `^0.1.30` before):
-  - walrus-ui: `WalrusView`, gate config via `relayGateConfig`;
-  - token-deployer-ui: `IconPicker`;
+  - walrus-storage-ui: `WalrusStorageView`, gate config via `relayGateConfig`;
+  - token-issuance-ui: `IconPicker`;
   - the dashboard, through both.
 - The live gated path is testnet: the operator relay behind the nft-gate Workers gateway.
   - The library does not hard-code the gate. The package and `PlatformConfig` come from
@@ -50,7 +50,7 @@ RUST, SITE, PLATFORM.
     `0xfd6c3b…` is on the superseded, now immutable package `0xa55789…`.
 - Paywall e2e PASS 2026-10-09 against the live dashboard (pass bought on gate `0x316f1bf9…`,
   consumed, `nft-gate:access:v2` proof, upload through the Worker). The proof is built by
-  walrus-client and nft-gate-client, not by this library.
+  walrus-storage-client and access-gate-gateway-client, not by this library.
 
 **Review date:** 2026-09-18 (first pass, corpus) · **re-verified 2026-10-03** · **re-verified 2026-10-09** · **fix wave 2026-10-10** · **release status 2026-10-18**
 **Reviewer:** Internal review
@@ -63,7 +63,7 @@ RUST, SITE, PLATFORM.
   resolved, and no open finding exceeds Info.
 
 **Status:** third pass re-verified 2026-10-09 at `e57b06e` (tag `v0.1.30`); fix wave 2026-10-10 on top of it
-(0.1.31, commit `24d7c43`), released 2026-10-18 and consumed by walrus-ui and token-deployer-ui at `^0.1.31`.
+(0.1.31, commit `24d7c43`), released 2026-10-18 and consumed by walrus-storage-ui and token-issuance-ui at `^0.1.31`.
 
 - The first pass (corpus file `walrus-relay-audit.md`, 2026-09-18) covered npm 0.1.12, predates the
   lens templates, and described constants and dependencies that no longer exist.
@@ -88,7 +88,7 @@ two since 0.1.27).
 | Package | Range |
 | --- | --- |
 | `@meddleware/access-gate-client` | `^0.0.9` (0.1.31; was `^0.0.8`) |
-| `@meddleware/walrus-client` | `^0.0.28` (0.1.31; was `^0.0.27`) |
+| `@meddleware/walrus-storage-client` | `^0.0.28` (0.1.31; was `^0.0.27`) |
 | `@meddleware/ui` | `^0.1.31` |
 | `@meddleware/design-tokens` | `^0.1.10` (0.1.31; was `^0.1.9`) |
 
@@ -98,7 +98,7 @@ two since 0.1.27).
 **Build tool:** none (ships source). Dev tooling: vitest 5.0.3, vue-tsc 3.3.12, TypeScript 6.0.3,
 `@vitejs/plugin-vue` 6.0.9.
 **Hosting:** n/a (a library; the consuming apps host it).
-**Embedding hosts:** walrus-ui, token-deployer-ui (`IconPicker`), and the dashboard through both.
+**Embedding hosts:** walrus-storage-ui, token-issuance-ui (`IconPicker`), and the dashboard through both.
 **VITE_\* inventory:** none read by the library. The consuming apps pass `VITE_WALRUS_RELAY_*`,
 `VITE_ACCESS_GATE_ID_{NET}`, `VITE_ACCESS_GATE_SOULBOUND_{NET}`, `VITE_ACCESS_GATE_PRICE_MIST_{NET}`
 and `VITE_UPLOAD_RELAY_MAX_TIP_MIST` in as arguments (none is secret; the gate id and price are
@@ -117,17 +117,17 @@ public, and the commission-routing ids are not env at all).
 
 **WALRUS lens front matter:**
 
-- **Walrus SDK:** not imported. It reaches the app through walrus-client (`@mysten/walrus` 1.2.34,
+- **Walrus SDK:** not imported. It reaches the app through walrus-storage-client (`@mysten/walrus` 1.2.34,
   `@mysten/walrus-wasm` 0.3.1 in this tree); since 0.1.27 it is also a peer dependency, so a host
   has one copy.
-- **Package config source:** n/a (in walrus-client).
-- **Upload relays:** injected by the app as `hosts: { operator, public }`. walrus-ui and
-  token-deployer-ui supply them from `VITE_WALRUS_RELAY_*` plus walrus-client's
+- **Package config source:** n/a (in walrus-storage-client).
+- **Upload relays:** injected by the app as `hosts: { operator, public }`. walrus-storage-ui and
+  token-issuance-ui supply them from `VITE_WALRUS_RELAY_*` plus walrus-storage-client's
   `PUBLIC_UPLOAD_RELAY_HOSTS`.
-- **Aggregators:** `WALRUS_AGGREGATOR_HOSTS`, which duplicates walrus-client's, for `walrusBlobUrl` (looked up as an
+- **Aggregators:** `WALRUS_AGGREGATOR_HOSTS`, which duplicates walrus-storage-client's, for `walrusBlobUrl` (looked up as an
   own key since 0.1.31, F22).
 - **Tip ceiling (display):** `MAX_TIP_MIST = 5_000_000n` (`src/lib/relay.ts`, 0.005 SUI since 0.1.32; 0.05 SUI
-  before). The authoritative cap is walrus-client's `uploadRelayMaxTipMist` (same default from walrus-client
+  before). The authoritative cap is walrus-storage-client's `uploadRelayMaxTipMist` (same default from walrus-storage-client
   0.0.29), enforced by the SDK.
 - **Epoch default / maximum:** 53 / 53, clamped in the widget (`WalrusUpload.vue:96-99`).
 - **Deletable default:** **permanent**. It is an explicit, explained checkbox, ticked by default
@@ -140,7 +140,7 @@ workspace-corpus copy (`docs/audit/walrus-relay-audit.md`) predates it and was n
 
 ## Executive summary
 
-`@meddleware/walrus-relay` is a thin, well-bounded library: 3 SFCs, 2 composables and 3 pure modules (about 2,000
+`@meddleware/walrus-storage-kit` is a thin, well-bounded library: 3 SFCs, 2 composables and 3 pure modules (about 2,000
 lines of source), with 161 tests in 8 files at 0.1.31.
 
 - **No dangerous imports.** It imports no wallet and no `@mysten/walrus`. The upload is injected.
@@ -243,13 +243,13 @@ Critical / High / Medium / Low / Info / Positive.
 
 **Cross-repo evidence (read-only):**
 
-- walrus-ui: `src/config.ts:68-80` (`relayGateConfig` wiring); `src/components/WalrusView.vue:49-50,
+- walrus-storage-ui: `src/config.ts:68-80` (`relayGateConfig` wiring); `src/components/WalrusStorageView.vue:49-50,
   118` (`useAccessGate` per network, `getClient: () => getSuiClient()`; `singleUse: state.singleUse.value`
   since 0.1.27);
-- token-deployer-ui: `IconPicker.vue:37` (`getClient: () => getReadClient(walrusNet)`, bound to the
+- token-issuance-ui: `IconPicker.vue:37` (`getClient: () => getReadClient(walrusNet)`, bound to the
   gate's network);
 - access-gate-client 0.0.8 (`fetchAccessNfts`, `isUsablePass`, builders, `deployments`);
-- walrus-client 0.0.27 (`./flow` conventions, `getUploadRetry`, audience-bound `nft-gate:access:v2`
+- walrus-storage-client 0.0.27 (`./flow` conventions, `getUploadRetry`, audience-bound `nft-gate:access:v2`
   proofs).
 
 **Out of scope:** the first-party dependencies (own audits); the relay, gateway and aggregator
@@ -279,7 +279,7 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 
 **Severity:** Medium (first pass)   **Disposition:** RESOLVED (re-verified 2026-10-03 and 2026-10-09; `relay.ts` is unchanged since `f6085e9`)
 
-- `MAX_TIP_MIST` is now **0.005 SUI** (`relay.ts:16`, 0.1.32), the same workspace ceiling as walrus-client's
+- `MAX_TIP_MIST` is now **0.005 SUI** (`relay.ts:16`, 0.1.32), the same workspace ceiling as walrus-storage-client's
   default cap (D2 re-derived under D57: ≈ 8× the re-priced operator relay's worst-case tip). The first pass
   recorded 1 SUI; it was 0.05 SUI from the alignment until 0.1.31.
 - `estimateTipMist` returns `null` above it (`:63-72`). Both `const` and `linear` modes are parsed.
@@ -333,9 +333,9 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 **Severity:** Info   **Disposition:** ADJUDICATED (by design; re-verified 2026-10-09)
 
 - The library still trusts the app's `GateExecutor`, `performUpload`, `getClient`,
-  `estimateStorageCost` and, since 0.1.28, the retry closures that walrus-client's errors carry
+  `estimateStorageCost` and, since 0.1.28, the retry closures that walrus-storage-client's errors carry
   (`getCertifyRetry`, `getUploadRetry`). The app is the trusted embedder.
-- `PersonalMessageSigner` is no longer used here; it lives in walrus-client's `createGatedAccess`
+- `PersonalMessageSigner` is no longer used here; it lives in walrus-storage-client's `createGatedAccess`
   (which signs the audience-bound `nft-gate:access:v2` proof).
 - One related gap: the app-supplied gate config is not checked (F10).
 
@@ -343,7 +343,7 @@ The working tree was left clean (the untracked `docs/` directory holds this audi
 
 **Severity:** Low   **Disposition:** RESOLVED (superseded; re-verified 2026-10-09)
 
-- The consume step moved to `@meddleware/walrus-client/flow` (`createGatedAccess`).
+- The consume step moved to `@meddleware/walrus-storage-client/flow` (`createGatedAccess`).
 - `useAccessGate` no longer decrements locally: `usesRemaining` is derived from the chain-read pass
   variant (`useAccessGate.ts:49-54, 104-108`).
 
@@ -426,7 +426,7 @@ structural interface); CLAUDE.md "Commission enforcement"; README; `SECURITY.md`
   `packageId`, `platformConfigId`, `nftType`, `gateId`, `soulbound` and `priceMist`.
 - An integrator can build the config by hand, for example to target their own `access_gate` publish
   with their own `PlatformConfig` and treasury, and use every widget unchanged.
-- The two current consumers do use `relayGateConfig` (walrus-ui `config.ts:77`, token-deployer-ui).
+- The two current consumers do use `relayGateConfig` (walrus-storage-ui `config.ts:77`, token-issuance-ui).
 
 **Impact:**
 
@@ -446,8 +446,8 @@ structural interface); CLAUDE.md "Commission enforcement"; README; `SECURITY.md`
 **Re-verification 2026-10-09:** unchanged. `gate: RelayGateConfig | null` (`useAccessGate.ts:41`) is
 still a structural interface and `relayGateConfig` (`constants.ts`) is still the only thing that
 fixes the package. CLAUDE.md, README and AGENTS.md still say "any operator who uses this library
-routes through Meddleware's `PlatformConfig`". The consumers (walrus-ui `config.ts:77`,
-token-deployer-ui) still use `relayGateConfig`. The white-label policy
+routes through Meddleware's `PlatformConfig`". The consumers (walrus-storage-ui `config.ts:77`,
+token-issuance-ui) still use `relayGateConfig`. The white-label policy
 (`docs/audit/WHITE_LABEL_COMMISSION.md`) still describes the binding as hardcoded constants; the
 mechanism is now `relayGateConfig`. Whether to enforce it in the composable is OQ7 and is the
 maintainer's call.
@@ -456,7 +456,7 @@ maintainer's call.
 
 - `useAccessGate({ network, gate, getClient })` runs `assertPinnedGate(network, gate)` at construction (`src/constants.ts`): the package, the `PlatformConfig` and the NFT type (normalised, at the original id, matching `soulbound`) must equal `accessGateDeployment(network)`, or it throws. A network with no recorded deployment throws (mainnet today) unless `gate` is `null` (an ungated relay needs no deployment). Because `buildPurchaseTx` and `buildConsumeTx` take their targets from the pinned config, nothing the library builds can target another package or `PlatformConfig`.
 - CLAUDE.md, README, AGENTS.md and `SECURITY.md` state the guarantee precisely and without the economics (F23).
-- Breaking (pre-v0.2): `network` is a new required dependency; consumers (walrus-ui, token-deployer-ui) pass it. A localnet gate cannot go through `useAccessGate` any more; the integration test reads the same objects through access-gate-client.
+- Breaking (pre-v0.2): `network` is a new required dependency; consumers (walrus-storage-ui, token-issuance-ui) pass it. A localnet gate cannot go through `useAccessGate` any more; the integration test reads the same objects through access-gate-client.
 - Tests: `tests/constants.test.ts` (`assertPinnedGate (F10)`: accepts what `relayGateConfig` builds and unpadded ids; refuses a foreign package, a foreign `PlatformConfig`, an NFT type from another package, module or struct, a type that disagrees with `soulbound`, and a network with no deployment), `tests/useAccessGate.test.ts` (`pinning to the published deployment (F10)`).
 
 ### F11 — Purchase uses the app-configured price; the signing UX omits recipients, commission and paused state
@@ -466,7 +466,7 @@ maintainer's call.
 
 - `src/composables/useAccessGate.ts:134` (`buildPurchaseTx(gate, gate.priceMist)`);
 - `src/components/AccessGateCta.vue:13-26` (price from the prop, which comes from env);
-- walrus-ui `config.ts` (`VITE_ACCESS_GATE_PRICE_MIST_{NET}`).
+- walrus-storage-ui `config.ts` (`VITE_ACCESS_GATE_PRICE_MIST_{NET}`).
 
 **Issue:** the price shown and split from gas is the operator's build-time value. The gate's on-chain
 `price_mist`, `paused` flag and commission terms are never read, so:
@@ -518,10 +518,10 @@ does not call them. Decision to carry (OQ8): whether the CTA reads the gate on-c
   free public relay is offered. The anti-bypass policy fails open to the free relay instead of
   surfacing the misconfiguration.
 - **Unvalidated hosts.** The **public** host, and the `selectedRelayHost` handed to `performUpload`,
-  are never validated. walrus-client refuses to send a token over http, but an http public host would
+  are never validated. walrus-storage-client refuses to send a token over http, but an http public host would
   still receive the plaintext blob.
 - **Loopback list.** `requireHttpsHost` treats only `localhost` and `127.0.0.1` as loopback, not
-  `[::1]` as walrus-client does.
+  `[::1]` as walrus-storage-client does.
 - **Configuration detection.** `isOperatorRelayConfigured = operator !== public` is a string compare:
   a trailing-slash or case variant of the same host counts as "configured".
 - **One-shot health check.** It runs once, at mount. A transient failure offers the public relay for
@@ -546,7 +546,7 @@ steering, not access control (WAL-M3).
 (`git diff f6085e9 HEAD` touches neither). The deployed apps inject fixed https hosts (the operator
 relay behind the Workers gateway, the public Mysten relay), so the exposure is a misconfiguration
 one. How the access proof is bound to the relay origin (audience-bound `nft-gate:access:v2` since
-walrus-client 0.0.26) is audited in walrus-client.
+walrus-storage-client 0.0.26) is audited in walrus-storage-client.
 
 **Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
@@ -566,15 +566,15 @@ walrus-client 0.0.26) is audited in walrus-client.
 
 - Invariant 1 describes the removed `ACCESS_GATE_PACKAGE_ID` / `ACCESS_GATE_PLATFORM_CONFIG_ID`
   constants.
-- Scope and invariant 2 cite `@meddleware/nft-gate-client` and an injected `PersonalMessageSigner`.
+- Scope and invariant 2 cite `@meddleware/access-gate-gateway-client` and an injected `PersonalMessageSigner`.
 - It says "the library builds no signing PTB itself". In fact it builds the purchase and consume PTBs
   through access-gate-client builders and submits the purchase through the injected executor.
 - The scope omits `relayGateConfig`.
 
-**`package.json` `description`:** "Built on @meddleware/walrus-client + @meddleware/nft-gate-client".
-The package has no `nft-gate-client` dependency (its dependencies are access-gate-client,
-walrus-client, ui and design-tokens), so the description should name access-gate-client. This is
-the item the nft-gate-client audit flagged.
+**`package.json` `description`:** "Built on @meddleware/walrus-storage-client + @meddleware/access-gate-gateway-client".
+The package has no `access-gate-gateway-client` dependency (its dependencies are access-gate-client,
+walrus-storage-client, ui and design-tokens), so the description should name access-gate-client. This is
+the item the access-gate-gateway-client audit flagged.
 
 **UI copy:** "three wallet approvals (relay access, blob registration, blob certification)" is
 inaccurate. Depending on the relay and pass:
@@ -588,18 +588,18 @@ inaccurate. Depending on the relay and pass:
 **Remediation / evidence:**
 
 - Rewrite `SECURITY.md` around `relayGateConfig` (with F10's precise statement), access-gate-client
-  and walrus-client.
+  and walrus-storage-client.
 - Correct the `package.json` description.
 - Derive the approval count from the access mode.
 
 **Re-verification 2026-10-09:** `SECURITY.md` is unchanged and still describes the removed
-`ACCESS_GATE_PACKAGE_ID` / `ACCESS_GATE_PLATFORM_CONFIG_ID` constants, `nft-gate-client` and
+`ACCESS_GATE_PACKAGE_ID` / `ACCESS_GATE_PLATFORM_CONFIG_ID` constants, `access-gate-gateway-client` and
 `PersonalMessageSigner`. The UI hint still says "three wallet approvals (relay access, blob
 registration, blob certification)" (`WalrusUpload.vue:465`). `package.json` `description` still
-says "Built on @meddleware/walrus-client + @meddleware/nft-gate-client" although the dependency is
+says "Built on @meddleware/walrus-storage-client + @meddleware/access-gate-gateway-client" although the dependency is
 access-gate-client (`package.json` dependencies; `grep -rn nft-gate src tests README.md AGENTS.md`
 finds nothing, so the description is the only stale mention). CLAUDE.md (0.1.27: `suiBoundary`, pass
-`variant`), `README.md` (names access-gate-client, walrus-client `./flow` and `relayGateConfig`) and
+`variant`), `README.md` (names access-gate-client, walrus-storage-client `./flow` and `relayGateConfig`) and
 `AGENTS.md` (`relayGateConfig`, access-gate-client `deployments`) are current. The second-pass
 claim that `AGENTS.md` and the README were stale no longer holds. Only `SECURITY.md`, the
 description and the UI copy remain. There is no `CHANGELOG.md` in this repo (the history is the git
@@ -609,8 +609,8 @@ The approvals table below is unchanged; the new "Retry upload" path (F20) adds a
 
 **Resolution 2026-10-10 (0.1.31, commit `24d7c43`):**
 
-- `SECURITY.md` is rewritten around `relayGateConfig` and the pinning in `useAccessGate`, access-gate-client and walrus-client: seven invariants (pinned deployment, no wallet or WASM import with the PTBs built only through access-gate-client builders, terms seen before signing, untrusted relay, fail-safe selection, no cross-account leak, no secrets). It no longer cites `nft-gate-client`, `PersonalMessageSigner` or the removed constants, and is published (`files`).
-- `package.json` `description` now reads "Built on @meddleware/walrus-client + @meddleware/access-gate-client".
+- `SECURITY.md` is rewritten around `relayGateConfig` and the pinning in `useAccessGate`, access-gate-client and walrus-storage-client: seven invariants (pinned deployment, no wallet or WASM import with the PTBs built only through access-gate-client builders, terms seen before signing, untrusted relay, fail-safe selection, no cross-account leak, no secrets). It no longer cites `access-gate-gateway-client`, `PersonalMessageSigner` or the removed constants, and is published (`files`).
+- `package.json` `description` now reads "Built on @meddleware/walrus-storage-client + @meddleware/access-gate-client".
 - The approvals copy is derived from the access mode (`approvalsHint`): two on an open relay; three on a gated relay with an unlimited pass; four with a single-use pass; "three or four" when the app does not pass `RelayAccessOptions.singleUse`. Test: `tests/walrus-upload.test.ts` (`approvals copy (F13)`).
 - README, AGENTS.md and CLAUDE.md are updated for the new API; `CHANGELOG.md` now exists.
 
@@ -652,7 +652,7 @@ component tests are still axe-only at the initial file step (`tests/components.t
 ### F15 — An unknown use count is treated as an unlimited pass
 
 **Severity:** Info   **Disposition:** RESOLVED (0.1.27, `971ed8a`, 2026-10-08; re-verified 2026-10-09; tracked `access-gate-client-audit.md` F1, RESOLVED there in 0.0.5)
-**Where (as found 2026-10-03):** `src/composables/useAccessGate.ts:88-97`; walrus-ui `WalrusView.vue:114`
+**Where (as found 2026-10-03):** `src/composables/useAccessGate.ts:88-97`; walrus-storage-ui `WalrusStorageView.vue:114`
 (`singleUse: state.usesRemaining.value !== null`).
 
 **Issue / Impact:**
@@ -660,7 +660,7 @@ component tests are still axe-only at the initial file step (`tests/components.t
 - access-gate-client reported `usesRemaining: null` for an unlimited pass **and** for an
   unparseable count.
 - This composable kept such passes as valid, sorted last.
-- walrus-ui then derived `singleUse = false` from `null`, skipped the consume, and the single-use
+- walrus-storage-ui then derived `singleUse = false` from `null`, skipped the consume, and the single-use
   gateway rejected the upload with no clear cause.
 
 **Remediation / evidence:**
@@ -671,7 +671,7 @@ component tests are still axe-only at the initial file step (`tests/components.t
   `bigint | null` (breaking, pre-v0.2 policy: patch bump).
 - access-gate-client's parser fails closed: an unknown tag or a count that is not a u64 is `null`, and
   such a pass is dropped before this composable sees it (`ownership.ts` `parseVariant`, in 0.0.8).
-- Consumer: walrus-ui now passes `singleUse: state.singleUse.value` (`WalrusView.vue:118`).
+- Consumer: walrus-storage-ui now passes `singleUse: state.singleUse.value` (`WalrusStorageView.vue:118`).
 - Tests: `ignores exhausted receipts, consumes the most-depleted single-use pass first and keeps
   unlimited last`; `has no access with only exhausted passes, and an unlimited pass only signs`;
   `reset() clears access, uses and the held NFT` now asserts `singleUse` is false.
@@ -696,9 +696,9 @@ component tests are still axe-only at the initial file step (`tests/components.t
   `pendingUpload` closures were built for the previous account's executor. wallet-adapter's executor
   refuses to sign after a switch, so this fails closed, but the prompt is stale. Both are cleared only
   when a new file is chosen or a new upload starts.
-- **Wrong-network reads.** walrus-ui builds one `useAccessGate` per network but passes
-  `getClient: () => getSuiClient()` (`WalrusView.vue:49-50`), which returns the *current* network's
-  client. token-deployer-ui does not have this problem: `IconPicker.vue:37` passes
+- **Wrong-network reads.** walrus-storage-ui builds one `useAccessGate` per network but passes
+  `getClient: () => getSuiClient()` (`WalrusStorageView.vue:49-50`), which returns the *current* network's
+  client. token-issuance-ui does not have this problem: `IconPicker.vue:37` passes
   `getClient: () => getReadClient(walrusNet)`, bound to the gate's network.
 
 **Impact:** confusing failures; wrong-network reads in an embedding host. Funds are not at risk,
@@ -714,8 +714,8 @@ because executors and the chain check fail closed (VUE-M6).
 
 - `useWalrusRelay` accepts `hosts` and `access` as a value, ref or getter and follows them: a new host pair clears the selection, tip configs and health state and re-checks; a stale probe answer is discarded (generation counter). `WalrusUpload` passes getters, so a network switch or another network's gate wiring is followed without a remount.
 - `WalrusUpload` takes an optional `sessionKey`. A change of it, of the hosts, or a disconnect calls `resetSession()`: the file, the held certify and upload closures, the duplicate prompt and the error are dropped and the widget returns to the file step. An upload, certify retry or upload retry that finishes under an older session epoch reports nothing (no `uploaded`, no error, no retry offer) but still emits `settled`.
-- `useAccessGate` takes `network` and calls `getClient(network)`, so a host that builds one gate state per network gets the matching client (walrus-ui's `getSuiClient()` problem); `reset()` also clears the terms.
-- Residual: an app that does not pass `sessionKey` is not protected against an account switch inside a mounted widget (documented in the README and the prop docs); walrus-ui and token-deployer-ui should pass `${network}:${address}`.
+- `useAccessGate` takes `network` and calls `getClient(network)`, so a host that builds one gate state per network gets the matching client (walrus-storage-ui's `getSuiClient()` problem); `reset()` also clears the terms.
+- Residual: an app that does not pass `sessionKey` is not protected against an account switch inside a mounted widget (documented in the README and the prop docs); walrus-storage-ui and token-issuance-ui should pass `${network}:${address}`.
 - Tests: `tests/walrus-upload.test.ts` (`another account or network (F16)`: file and retries dropped on a session change, certify retry on a network change, a late result, failure, duplicate and retry ignored, disconnect, new hosts, new gate wiring), `tests/useWalrusRelay.test.ts` (`follows its inputs (F16)`), `tests/useAccessGate.test.ts` (`discards terms that arrive after a reset`, `passes the network to getClient`).
 
 ### F17 — Packaging, CI and style details
@@ -726,7 +726,7 @@ because executors and the chain check fail closed (VUE-M6).
   (`npm pack --dry-run` 2026-10-09: 17 files, 24.1 kB, 4 tests). **RESOLVED in 0.1.31** (moved to `tests/`; TS-M7, B.TS-1). Low impact: consumers compile only what `src/index.ts` imports.
 - **Peer floor.** **RESOLVED in 0.1.27 (`971ed8a`).** The `@mysten/sui` peer floor is now `^2.33.2`
   (it matched the `@mysten/walrus` 1.2.32 chain), and `@mysten/walrus` `~1.2.32` is a peer too, so a
-  host has one copy of each (`walrus-client-audit.md` F9). Installed: 2.35.0 and 1.2.34, one copy
+  host has one copy of each (`walrus-storage-client-audit.md` F9). Installed: 2.35.0 and 1.2.34, one copy
   each (`npm ls --all`).
 - **Publish verification.** `npm-publish.yml` uses `--if-present` and runs no lint (Node CI does run
   stylelint, eslint with a11y, and html-validate). **RESOLVED in 0.1.31** (the `verify` job runs lint and the contrast gate). The `verify` job does run `npm ci`, the
@@ -735,16 +735,16 @@ because executors and the chain check fail closed (VUE-M6).
   - Sui CLI: **RESOLVED** in `614a25f` (2026-10-09): `testnet-v1.81.0` with a sha256 check of the
     installed binary (matches `Published.toml`). The `suiup` download is already checksummed.
   - `npm install`, not `npm ci` (`integration.yml:68`). **RESOLVED in 0.1.31** (`npm ci`).
-  - `walrus-client` and `access-gate-sui` were checked out at `vars.*_REF || 'main'`, which is
-    unpinned (`walrus-client-audit.md` F17). **RESOLVED 2026-10-22** (below).
+  - `walrus-storage-client` and `access-gate-sui` were checked out at `vars.*_REF || 'main'`, which is
+    unpinned (`walrus-storage-client-audit.md` F17). **RESOLVED 2026-10-22** (below).
   - The localnet suite needs `.env.localnet`; it was not run here (no localnet in this environment).
 - **Hardcoded colours.** ADJUDICATED. The scoped CSS uses hex fallbacks, for example
   `var(--border, #ded6cf)`. They equal the light-theme token values in `@meddleware/design-tokens`
   (checked: `--border`, `--lift`, `--muted`, `--ok`, `--danger`), added deliberately in `7d09209`
   so the widgets render if `tokens.css` is not imported. Contrast across themes is F21.
 - **Duplicated constants.** ACCEPTED-RISK. `WALRUS_AGGREGATOR_HOSTS` and
-  `MAX_SINGLE_RESERVATION_EPOCHS` duplicate walrus-client's. They are kept here deliberately, to avoid
-  pulling the wasm chunk. walrus-client reads `max_epochs_ahead` live (53 fallback) and rejects an
+  `MAX_SINGLE_RESERVATION_EPOCHS` duplicate walrus-storage-client's. They are kept here deliberately, to avoid
+  pulling the wasm chunk. walrus-storage-client reads `max_epochs_ahead` live (53 fallback) and rejects an
   out-of-range `epochs` before any wallet prompt (0.0.26), so a stale constant here fails closed.
 - **Dependabot.** Added in `fdbec17` (weekly, grouped npm minor/patch and actions). Merged tooling
   updates since: jsdom 30.1.2 and the npm-minor-patch group (`17b47d5`, `e49a95e`).
@@ -755,20 +755,20 @@ because executors and the chain check fail closed (VUE-M6).
 - **Publish verification.** RESOLVED: the `verify` job runs `npm run lint` and the Playwright contrast gate in addition to `npm ci`, the audit gate, type-check and tests; the npm client stays pinned.
 - **Integration CI `npm install`.** RESOLVED: `npm ci`.
 - **Integration refs.** At 0.1.31 these were checked out at `vars.*_REF || 'main'`; pinning needed a choice of commit and was left open. Recommendation then: pin to the SHAs a green run used, and bump them with the dependency. **Done 2026-10-22, below.**
-- `engines.node` is `>=24` (fleet decision D41; as nft-gate-client 0.0.17). The `CHANGELOG.md` and `SECURITY.md` ship in the tarball.
+- `engines.node` is `>=24` (fleet decision D41; as access-gate-gateway-client 0.0.17). The `CHANGELOG.md` and `SECURITY.md` ship in the tarball.
 
 **Resolution 2026-10-22 (CI only, no version change; commit pending):**
 
 - **Integration refs.** RESOLVED: `.github/workflows/integration.yml` now defaults `ref` to a commit for both siblings
   (the `WALRUS_CLIENT_REF` and `ACCESS_GATE_REF` repository variables still override it for a trial run, and neither is
-  set): `walrus-client` `75cd12ac557153fbb50567791c7583c3c7d490dd` (`main` after v0.0.30, the localnet harness with the
+  set): `walrus-storage-client` `75cd12ac557153fbb50567791c7583c3c7d490dd` (`main` after v0.0.30, the localnet harness with the
   pinned node image and the WAL funding that fails fast; v0.0.30 itself predates it) and `access-gate-sui`
   `bf23517a1362e080e47ca96e4cc0aae4731dd366` (the commit of the `v0.0.7` tag, the current published tag). A comment in the
   workflow says how to bump a pin: take the new SHA (`git rev-parse <tag>^{commit}`), set it, dispatch the workflow and
   commit it with the proving run. Evidence: the dispatched run 39784066851 on `main` passed on 2026-10-22 with both pins in
   place; actionlint clean. The earlier concern that no single commit suits both repos is settled by pinning each
-  sibling independently: the relay needs only the harness (walrus-client) and some `access_gate` the harness can deploy
-  (the harness reads the sibling checkout), not the same commit walrus-client's own CI pins (`83dbf25`, `v0.0.6`).
+  sibling independently: the relay needs only the harness (walrus-storage-client) and some `access_gate` the harness can deploy
+  (the harness reads the sibling checkout), not the same commit walrus-storage-client's own CI pins (`83dbf25`, `v0.0.6`).
 
 ### F18 — Positive: selection policy, purchase guards, rendering and supply chain
 
@@ -800,7 +800,7 @@ because executors and the chain check fail closed (VUE-M6).
   - prefixed, scoped CSS; no shell chrome (VUE-M9);
   - axe tests on all three components;
   - html-validate and a11y lint.
-- **Chain access** only through access-gate-client (exact types, paged reads) and walrus-client
+- **Chain access** only through access-gate-client (exact types, paged reads) and walrus-storage-client
   `./flow` (SC-M10), now enforced by lint (F19).
 - **Supply chain:**
   - an audit gate with a validated, **expiring** allowlist (one dev-only advisory, expires
@@ -833,16 +833,16 @@ have added a `moveCall`, a chain read or an unguarded URL binding without CI not
 
 ### F20 — Same-registration upload retry (new 2026-10-09)
 
-**Severity:** Low (the gap it closes: a paid registration lost to a transient relay failure)   **Disposition:** RESOLVED (`7c446a2`, 2026-10-08, released in 0.1.28; depends on walrus-client 0.0.26). The behaviour is pinned by tests in this repo since 0.1.31 (F14).
+**Severity:** Low (the gap it closes: a paid registration lost to a transient relay failure)   **Disposition:** RESOLVED (`7c446a2`, 2026-10-08, released in 0.1.28; depends on walrus-storage-client 0.0.26). The behaviour is pinned by tests in this repo since 0.1.31 (F14).
 **Where:** `src/components/WalrusUpload.vue` (`getUploadRetry` import, `pendingUpload`,
 `runPendingUpload`, the "Retry upload" block in the options step).
 
 **Issue:** `S4` of the second pass and the WAL-M8 baseline row noted that a failed relay upload cost
-a second registration (walrus-client F7). The widget had only the certify retry.
+a second registration (walrus-storage-client F7). The widget had only the certify retry.
 
 **Remediation / evidence:**
 
-- walrus-client 0.0.26 retries a failed upload on the same registration (up to 3 attempts, a fresh
+- walrus-storage-client 0.0.26 retries a failed upload on the same registration (up to 3 attempts, a fresh
   access proof each time) and, when attempts run out, throws an error carrying `getUploadRetry(err)`.
 - The widget holds that closure (`pendingUpload`), shows "Your blob is registered and paid for, but
   the upload to the relay did not complete" with a **Retry upload** button, keeps the offer if the
@@ -850,10 +850,10 @@ a second registration (walrus-client F7). The widget had only the certify retry.
   file or a new upload clears it.
 - This is not a register resume: the library never resumes register. The relay embeds the tip and
   nonce in the register transaction and rejects a stale one ("too old"), so the retry works only within
-  the relay's freshness window. walrus-client bounds it (`REGISTRATION_FRESH_MS`, 50 minutes inside the
+  the relay's freshness window. walrus-storage-client bounds it (`REGISTRATION_FRESH_MS`, 50 minutes inside the
   relay's one hour; test "does not retry once the registration is too old for the relay", per
-  `walrus-client-audit.md`); after it the user uploads afresh, registering again. The widget shows no
-  countdown (residual, Info; that bound is walrus-client's and was read there, not exercised here).
+  `walrus-storage-client-audit.md`); after it the user uploads afresh, registering again. The widget shows no
+  countdown (residual, Info; that bound is walrus-storage-client's and was read there, not exercised here).
 - Gaps at 0.1.30: no component test (F14); the pending closure survives an account switch (F16). Both closed in 0.1.31.
 
 **Update 2026-10-10 (0.1.31, commit `24d7c43`):** the behaviour is now pinned by tests in `tests/walrus-upload.test.ts` (`same-registration upload retry (F20)`): the retry runs the app's closure and not `performUpload` again, a repeat failure keeps the offer on the new closure, a retry that lands but fails to certify hands over to the certify retry, and a held retry is dropped on a session change (F16). The gap noted above is closed.
@@ -871,13 +871,13 @@ checked in a real browser (axe) over a gallery with the real tokens. For this li
   season (`npm run check:contrast`, 4.5:1 text and 3:1 non-text);
 - this library's own pairings (for example `--ok` or `--danger` text on the page surface, `--text` on
   `--lift`) are not named in that gate here, and the library's axe tests run in jsdom, which does not
-  compute colour contrast. walrus-ui's Playwright e2e does not run axe.
+  compute colour contrast. walrus-storage-ui's Playwright e2e does not run axe.
 
 **Impact:** a low-contrast state of the relay badge or the purchase prompt could ship in a theme not
 tried. Cosmetic and accessibility, not a safety issue.
 
 **Remediation / evidence:** include the three components in the browser axe gallery that checks
-`ui`/`design-tokens` (or in walrus-ui's e2e), across all theme x season combinations; confirm the
+`ui`/`design-tokens` (or in walrus-storage-ui's e2e), across all theme x season combinations; confirm the
 link-in-text rule (the library renders no links in running text).
 
 **Resolution 2026-10-10 (0.1.31, commit `24d7c43`):** copied the approach of `ui` (Playwright + `@axe-core/playwright` over a gallery built with the real tokens and seasons): `gallery/` (a Vite page rendering the three components in every state, with fixture relays), `e2e/contrast.spec.ts`, `playwright.config.ts`, `vite.gallery.config.ts`, `npm run test:e2e`, a Node CI job and a step in the publish `verify` job.
@@ -934,7 +934,7 @@ without the economics, or adjust the rule if the comment is acceptable. The main
 | # | Invariant | Enforced at | Proven by | Status |
 | --- | --- | --- | --- | --- |
 | A1 | Gate-config IDs (package, `PlatformConfig`, NFT type) come only from the published deployment | `relayGateConfig` and `assertPinnedGate` in `useAccessGate` (`constants.ts`) | `pins the package and PlatformConfig to the published deployment`; `assertPinnedGate (F10)`; `pinning to the published deployment (F10)` | HOLDS — for the helper and for any config handed to `useAccessGate` (F10, 0.1.31) |
-| A2 | Tip has an upper bound (display) and is enforced by the SDK (payment) | `MAX_TIP_MIST`; walrus-client `sendTip.max` | relay tests; badge tests | HOLDS — an unknown or above-ceiling tip is shown as such, never as no tip (F9, 0.1.31) |
+| A2 | Tip has an upper bound (display) and is enforced by the SDK (payment) | `MAX_TIP_MIST`; walrus-storage-client `sendTip.max` | relay tests; badge tests | HOLDS — an unknown or above-ceiling tip is shown as such, never as no tip (F9, 0.1.31) |
 | A3 | No `@mysten/walrus` import | grep | — | HOLDS |
 | A4 | No wallet import | grep (executor injected) | — | HOLDS |
 | A5 | No secrets | grep | — | HOLDS |
@@ -943,12 +943,12 @@ without the economics, or adjust the rule if the comment is acceptable. The main
 | A8 | Ships source, no build step | `exports` → `src/index.ts`; `files` | `npm pack --dry-run` (15 files, no tests); publish workflow check | HOLDS (F17, 0.1.31) |
 | A9 | No XSS sinks | components | grep; html-validate | HOLDS |
 | A10 | **Estimates labelled as estimates** (VUE) | cost line "Estimated"; badge | `cost line`; badge tests | HOLDS — the widget says "Estimated", the badge distinguishes none, a figure, unknown and above the limit (F9) |
-| A11 | **Signing UX:** action, amount, recipients and network before each signature (VUE-M4) | `AccessGateCta` terms from the chain; `purchase` re-read; widget cost line and approvals hint | `AccessGateCta (F11)`; `purchase` tests; `approvals copy (F13)` | HOLDS for the purchase (exact payment, payees, shares, network, pass kind; no prompt for unseen terms). The upload's own prompts (registration, certify) are walrus-client's and the wallet's; the widget states the approval count and an estimate (F11, F13, 0.1.31) |
+| A11 | **Signing UX:** action, amount, recipients and network before each signature (VUE-M4) | `AccessGateCta` terms from the chain; `purchase` re-read; widget cost line and approvals hint | `AccessGateCta (F11)`; `purchase` tests; `approvals copy (F13)` | HOLDS for the purchase (exact payment, payees, shares, network, pass kind; no prompt for unseen terms). The upload's own prompts (registration, certify) are walrus-storage-client's and the wallet's; the widget states the approval count and an estimate (F11, F13, 0.1.31) |
 | A12 | **Shared-wallet state invalidated on switch** (VUE-M6) | `useAccessGate.reset()` + generation; `WalrusUpload.resetSession()` + session epoch; reactive hosts and gate wiring | wallet-switch tests; `another account or network (F16)` | HOLDS for the composable and the widget, given `sessionKey` (F16, 0.1.31) |
 | A13 | **Permanent default, explicit** (WAL-M4, VUE-M5) | checkbox, default ticked | `uploads the chosen bytes … permanent by default`; `maps the permanence checkbox to deletable` | HOLDS (F14) |
 | A14 | **Fail-closed ownership; usable passes only** | `checkOwnership`, `isUsablePass`, pass `variant` | tests (F8, F15) | HOLDS — an unknown or exhausted pass is not access (F15 RESOLVED, 0.1.27) |
 | A15 | **Chain-access boundary** (ADR-0001, SC-M10): no inline PTB, chain read or unguarded URL sink in `src` | `suiBoundary()` in `eslint.config.ts`; `npm run lint` | lint in Node CI | HOLDS — enforced by lint since 0.1.27 (F19) |
-| A16 | **A paid registration is not lost to a transient relay failure; register is never resumed** (WAL-M8) | `WalrusUpload.vue` `pendingUpload` / walrus-client `getUploadRetry` (50-minute bound) | walrus-client `tests/flow.test.ts`; `same-registration upload retry (F20)` here | HOLDS by design; the widget path is tested (F14, F20) |
+| A16 | **A paid registration is not lost to a transient relay failure; register is never resumed** (WAL-M8) | `WalrusUpload.vue` `pendingUpload` / walrus-storage-client `getUploadRetry` (50-minute bound) | walrus-storage-client `tests/flow.test.ts`; `same-registration upload retry (F20)` here | HOLDS by design; the widget path is tested (F14, F20) |
 
 ---
 
@@ -962,12 +962,12 @@ production tree is clean.
 | Dependency | Range (installed) | Liveness dependency? | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `@meddleware/access-gate-client` | `^0.0.9` (0.0.9) | ownership reads; the gate and `PlatformConfig` reads; purchase and consume PTBs | provenance | its F1 / F5 are fixed (0.0.5 / 0.0.6) and resolve F15 / the F3 caveat here; 0.0.9 adds abort codes 15 and 16 and `validateGatePolicy` (this library builds no create-gate transaction, so only the abort table matters) |
-| `@meddleware/walrus-client` | `^0.0.28` (0.0.28) | flow types and error helpers (`./flow`) | provenance | its F7 double-payment issue is fixed (0.0.26 same-registration retry) and surfaces as F20; 0.0.28 ships `.d.ts`, and its conflict helpers use nft-gate-client's vocabulary (not used here) |
+| `@meddleware/walrus-storage-client` | `^0.0.28` (0.0.28) | flow types and error helpers (`./flow`) | provenance | its F7 double-payment issue is fixed (0.0.26 same-registration retry) and surfaces as F20; 0.0.28 ships `.d.ts`, and its conflict helpers use access-gate-gateway-client's vocabulary (not used here) |
 | `@meddleware/ui` / `design-tokens` | `^0.1.31` / `^0.1.10` | UI | — | the contrast gate (F21) runs against the 0.1.10 tokens |
 | `@playwright/test`, `@axe-core/playwright`, `vite` (dev) | `~1.63.0`, `~4.13.0`, `^8.3.4` | contrast gate (F21) | — | dev-only, as in `ui` |
 | `@meddleware/eslint-config` (dev) | `^0.0.2` | lint (`suiBoundary`) | — | F19 |
 | `@mysten/sui` (peer) | `^2.33.2` (2.35.0) | transactions (types only in `src`) | clean | floor aligned in 0.1.27 (F17) |
-| `@mysten/walrus` (peer) | `~1.2.32` (1.2.34) | none imported; reaches the app through walrus-client | clean | peer so a host has one copy (F17) |
+| `@mysten/walrus` (peer) | `~1.2.32` (1.2.34) | none imported; reaches the app through walrus-storage-client | clean | peer so a host has one copy (F17) |
 | `vue` (peer) | `^3.5.0` (3.5.43) | everything | clean | |
 | Operator relay | app-injected | uploads; selection | — | fails over to the public relay and is re-checked with backoff (F12) |
 | Public relay | app-injected | fallback | — | its tip is read, not assumed 0 (F12) |
@@ -980,7 +980,7 @@ production tree is clean.
 | `@mysten/walrus` | — | `~1.2.32` | `~1.2.32` |
 | `vue` | — | `^3.5.40` | `^3.5.0` |
 | `@meddleware/access-gate-client` | `^0.0.9` | — | — |
-| `@meddleware/walrus-client` | `^0.0.28` | — | — |
+| `@meddleware/walrus-storage-client` | `^0.0.28` | — | — |
 | `@playwright/test` / `@axe-core/playwright` / `vite` | — | `~1.63.0` / `~4.13.0` / `^8.3.4` | — |
 | `typescript` / `vitest` / `vue-tsc` | — | `~6.0.0` / `~5.0.2` / `~3.3.0` | — |
 
@@ -988,7 +988,7 @@ production tree is clean.
 
 | Authority / secret | Where | Custody | Gates |
 | --- | --- | --- | --- |
-| npm publish `@meddleware/walrus-relay` | `npm-publish.yml` (tag `v*`) | OIDC trusted publisher; `--provenance` | releases |
+| npm publish `@meddleware/walrus-storage-kit` | `npm-publish.yml` (tag `v*`) | OIDC trusted publisher; `--provenance` | releases |
 | Gate-config IDs (package, `PlatformConfig`) | access-gate-client `deployments` (generated, provenance) | compile-time | checked by `assertPinnedGate` (F10) |
 
 #### CI & release integrity
@@ -1004,15 +1004,15 @@ production tree is clean.
 | No test or gallery file in the tarball | Yes | `npm-publish.yml` packed-files check (F17; 0.1.31) |
 | `npm ci` in integration | Yes | `integration.yml` (F17; 0.1.31) |
 | Sui CLI pinned and checksummed in integration | Yes | `614a25f`: `testnet-v1.81.0`, sha256 check (F17) |
-| Integration refs pinned | Yes | `walrus-client` at `75cd12a`, `access-gate-sui` at the `v0.0.7` commit `bf23517`; the `vars.*_REF` variables override for a trial (F17; 2026-10-22, run 39784066851) |
+| Integration refs pinned | Yes | `walrus-storage-client` at `75cd12a`, `access-gate-sui` at the `v0.0.7` commit `bf23517`; the `vars.*_REF` variables override for a trial (F17; 2026-10-22, run 39784066851) |
 
 ### B.WAL coupling (WALRUS lens)
 
 | Format | Producer | Consumer | Test |
 | --- | --- | --- | --- |
 | `/v1/tip-config` (`no_tip`, `send_tip.kind.const`, `send_tip.kind.linear{base, encoded_size_mul_per_kib}`) | relay | `parseTipConfig` via `fetchTipConfig` (16 KiB cap) | relay tests (both modes, ceiling, negatives, garbage, oversized body) |
-| `UploadProgress` / `ExistingCopy` / `certifyRetry` / `uploadRetry` | walrus-client `./flow` | `WalrusUpload` | `tests/walrus-upload.test.ts` attaches the errors with the real `attach*` helpers (F14) |
-| Access proof `nft-gate:access:v2` (audience-bound) | walrus-client `createGatedAccess` / nft-gate-client | the operator relay's Worker gateway | not built here; paywall e2e PASS 2026-10-09 |
+| `UploadProgress` / `ExistingCopy` / `certifyRetry` / `uploadRetry` | walrus-storage-client `./flow` | `WalrusUpload` | `tests/walrus-upload.test.ts` attaches the errors with the real `attach*` helpers (F14) |
+| Access proof `nft-gate:access:v2` (audience-bound) | walrus-storage-client `createGatedAccess` / access-gate-gateway-client | the operator relay's Worker gateway | not built here; paywall e2e PASS 2026-10-09 |
 
 ### B.SC-1 ID trace
 
@@ -1052,7 +1052,7 @@ production tree is clean.
 | Tip parsing, selection policy, `relayGateConfig` | yes | — | — |
 | Widget upload, duplicate, certify-retry and upload-retry flows | yes (mounted, fake `performUpload`) | the live e2e below covers the real flow | F14 |
 | Purchase terms and purchase (price, pause, abort, changed terms) | yes against a fake client; the live `Gate` and `PlatformConfig` parse is in the localnet integration test (not run here) | the paywall e2e below | F11 |
-| Gated upload end to end | no | the paywall e2e against the live dashboard (PASS 2026-10-09: pass bought on gate `0x316f1bf9…`, consumed, `nft-gate:access:v2` proof, upload through the Worker); token-deployer-ui `e2e:walrus` (PASS 2026-10-01) | — |
+| Gated upload end to end | no | the paywall e2e against the live dashboard (PASS 2026-10-09: pass bought on gate `0x316f1bf9…`, consumed, `nft-gate:access:v2` proof, upload through the Worker); token-issuance-ui `e2e:walrus` (PASS 2026-10-01) | — |
 
 ---
 
@@ -1111,26 +1111,26 @@ production tree is clean.
 
 - **Supply chain:** an expiring-allowlist audit gate (a model for the other repos); OIDC provenance;
   a source-shipping package compiled by consumers, so shipped test files mattered (F17, fixed in 0.1.31).
-- **Wire-format coupling:** the relay `tip-config` schema (both modes tested); walrus-client `./flow`
+- **Wire-format coupling:** the relay `tip-config` schema (both modes tested); walrus-storage-client `./flow`
   types.
 - **On-chain-truth boundary:** prices and passes come from the chain, not env (F11, F15; 0.1.31). Relay
   selection is client-side steering; access is decided by the gateway and `access_gate`.
 - **Chain-access layering (ADR-0001):** no inline `moveCall`; reads and builders come from
-  access-gate-client; IDs from its generated `deployments`; upload conventions from walrus-client.
+  access-gate-client; IDs from its generated `deployments`; upload conventions from walrus-storage-client.
 - **Pre-v0.2 policy:** patch-only bumps until go-live (breaking included). The F15 change
-  (`usesRemaining` now `bigint | null`, new `singleUse`) shipped as 0.1.27 with walrus-ui bumped in
+  (`usesRemaining` now `bigint | null`, new `singleUse`) shipped as 0.1.27 with walrus-storage-ui bumped in
   step. The breaking changes of 0.1.31 (F9 `RelayHealth`, F10 `network` in deps, F11 no `priceMist`
-  and `terms` for the prompt, F16 reactive hosts and `sessionKey`) ship the same way: walrus-ui and
-  token-deployer-ui need a matching bump.
+  and `terms` for the prompt, F16 reactive hosts and `sessionKey`) ship the same way: walrus-storage-ui and
+  token-issuance-ui need a matching bump.
 - **Register is never resumed:** the tip relay embeds the tip and a nonce in the register transaction
   and rejects a reused one ("too old"), so recovery is the bounded same-registration upload retry (F20)
   or a fresh register, never a resumed register.
 - **Shared with sibling audits:**
   - access-gate-client F1 → F15;
   - access-gate-client F5 → F3 caveat;
-  - walrus-client F7 (double payment; fixed in 0.0.26, surfaced here as F20) and F9 → F17;
-  - walrus-client F17 → F17;
-  - nft-gate-client audit note (the `package.json` description names `nft-gate-client`) → F13.
+  - walrus-storage-client F7 (double payment; fixed in 0.0.26, surfaced here as F20) and F9 → F17;
+  - walrus-storage-client F17 → F17;
+  - access-gate-gateway-client audit note (the `package.json` description names `access-gate-gateway-client`) → F13.
 
 ---
 
@@ -1146,7 +1146,7 @@ production tree is clean.
 5. MUST keep `SECURITY.md` aligned with the shipped architecture — **holds** (F13, 0.1.31).
 6. MUST NOT treat an unknown, unparseable or exhausted pass as access — **holds** (F15, 0.1.27).
 7. MUST NOT resume a register, and MUST NOT re-register for a failed relay upload inside the relay's
-   freshness window — **holds** (F20; walrus-client enforces the bound).
+   freshness window — **holds** (F20; walrus-storage-client enforces the bound).
 8. MUST keep on-chain logic out of `src` — **holds**, enforced by lint (F19).
 
 **VUE lens baseline:**
@@ -1159,7 +1159,7 @@ production tree is clean.
 | VUE-M4 | yes (terms read from the chain and shown before the wallet opens; approvals copy derived) | F11, F13 |
 | VUE-M5 | yes (permanent default, explained; no typed confirmation needed, a paid action is a deliberate click) | A13 |
 | VUE-M6 | yes: composable and widget (with `sessionKey`); hosts and gate wiring follow their inputs | F16 |
-| VUE-M7 | N/A (no storage here; the flow's storage is walrus-client's) | — |
+| VUE-M7 | N/A (no storage here; the flow's storage is walrus-storage-client's) | — |
 | VUE-M8 | N/A (hosting is the apps') | — |
 | VUE-M9 | yes | F18 |
 
@@ -1167,13 +1167,13 @@ production tree is clean.
 
 | ID | Holds? | Evidence |
 | --- | --- | --- |
-| WAL-M1 | display ceiling yes; payment cap in walrus-client; both modes parsed | F1 |
+| WAL-M1 | display ceiling yes; payment cap in walrus-storage-client; both modes parsed | F1 |
 | WAL-M3 | client-side steering only, stated here; an invalid host throws or offers nothing, a failed operator relay is re-checked; the gateway enforces access | F12 |
 | WAL-M4 | yes | A6, A13 |
-| WAL-M5 | via walrus-client | — |
+| WAL-M5 | via walrus-storage-client | — |
 | WAL-M6 | N/A | — |
 | WAL-M7 | copy mentions costs, not publicity | Suggestion S3 |
-| WAL-M2 | N/A (the library holds no relay credential; walrus-client attaches the proof to the relay origin) | — |
+| WAL-M2 | N/A (the library holds no relay credential; walrus-storage-client attaches the proof to the relay origin) | — |
 | WAL-M8 | holds: certify retry and, since 0.1.28, a bounded same-registration upload retry; register is never resumed (the relay rejects a reused register as "too old") | F20 |
 | WAL-M9 | `maxBytes` is UX only (stated) | — |
 
@@ -1186,8 +1186,8 @@ production tree is clean.
 | SC-M3 | yes: the executor throws on a failed transaction, the purchase awaits `waitForTransaction`, then re-reads ownership | F18 |
 | SC-M4 | price as `bigint \| number` passed to `toU64`; `usesRemaining` an exact `bigint` | F15 |
 | SC-M5 | per-network deployment; `getClient(network)` binds the client to the gate's network | F10, F16 |
-| SC-M6 | N/A (no signature verification here; the proof is built in walrus-client and verified by the gateway) | — |
-| SC-M7 | N/A (consume event binding is the gateway's and nft-gate-client's) | — |
+| SC-M6 | N/A (no signature verification here; the proof is built in walrus-storage-client and verified by the gateway) | — |
+| SC-M7 | N/A (consume event binding is the gateway's and access-gate-gateway-client's) | — |
 | SC-M8 | yes (the library signs nothing; the injected executor executes the purchase) | — |
 | SC-M9 | yes (passes are extracted by exact type in access-gate-client) | — |
 | SC-M10 | yes, enforced by lint | F19 |
@@ -1214,7 +1214,7 @@ production tree is clean.
   the CTA (F11). *(Done in 0.1.31 inside `useAccessGate`: `terms`, `loadTerms()`.)*
 - **S3** SHOULD add a one-line note in the upload review: "Stored data is public on Walrus — encrypt
   sensitive files first (Sealed Storage)" (WAL-M7).
-- **S4** MAY offer a "Retry upload" action once walrus-client exposes `uploadRetry` (walrus-client
+- **S4** MAY offer a "Retry upload" action once walrus-storage-client exposes `uploadRetry` (walrus-storage-client
   F7). *(Done in 0.1.28: F20.)*
 - **S5** SHOULD adopt the audit-gate pattern (expiring allowlist) across the other repos.
 - **S6** SHOULD name the three components in the browser axe gallery (F21) and fix the `package.json`
@@ -1230,13 +1230,13 @@ production tree is clean.
 3. **OQ3** *(first pass)* What guarantees the app derives `gate.packageId` / `platformConfigId` from
    the constants? *(2026-10-03: partly answered by `relayGateConfig` — the package and
    `PlatformConfig` cannot be passed to it. Not enforced at `useAccessGate`; reopened as F10 / OQ7. **Decided 2026-10-10 (0.1.31):** enforced — `useAccessGate` runs `assertPinnedGate` against `accessGateDeployment(network)`, see OQ7 and F10.)*
-4. **OQ4** *(first pass)* Pin `nft-gate-client` exactly?
+4. **OQ4** *(first pass)* Pin `access-gate-gateway-client` exactly?
    *(2026-10-03: superseded. PTBs come from access-gate-client, at `^0.0.8` then (`^0.0.9` in 0.1.31), which for a 0.0.x range
    admits only that one version; the version is bumped in step with each `access-gate-sui` publication.)*
 5. **OQ5** *(first pass)* CI hardening (`npm ci`, audit)?
    *(Done in Node CI and publish, with the expiring-allowlist gate, and since 0.1.31 in the integration workflow too: `integration.yml` runs `npm ci` — F17; checked 2026-10-22.)*
 6. **OQ6** *(first pass)* Re-check ownership instead of an optimistic decrement?
-   *(2026-10-03: superseded. The decrement was removed and consume moved to walrus-client — F7.)*
+   *(2026-10-03: superseded. The decrement was removed and consume moved to walrus-storage-client — F7.)*
 7. **OQ7** *(new)* F10: enforce Meddleware's deployment inside `useAccessGate` (blocking white-label
    forks that use the widgets with their own `access_gate`), or document that commission pinning is
    a property of `relayGateConfig` only?
@@ -1271,7 +1271,7 @@ production tree is clean.
   republish (as on 2026-10-09: `0xfd6c3b…` to `0x316f1bf9…`) is one coordinated release of the apps'
   `VITE_ACCESS_GATE_ID_{NET}` plus the access-gate-client bump; a stale app build points at a gate on
   the superseded package and finds no ownership.
-- **Dependency inheritance:** this library inherits walrus-client's flow behaviour (the bounded
+- **Dependency inheritance:** this library inherits walrus-storage-client's flow behaviour (the bounded
   same-registration retry, F20) and access-gate-client's parsing (fail-closed since 0.0.5, F15).
 - **Source shipping:** consumers compile everything under `src`; since 0.1.31 that is no longer tests (F17).
 - **Extra reads:** the prompt costs two object reads per mount and two before signing; a rate-limited node
@@ -1292,7 +1292,7 @@ production tree is clean.
   0.1.26 with provenance).
   - **Lenses:** AUDIT_TEMPLATE.md (2026-10-02) + VUE (2026-09-30) + WALRUS (2026-09-30) + SUI_CLIENT
     (2026-09-30) + TS (2026-10-03).
-  - **Re-verified:** F1–F8. F3 and F7 are superseded by the access-gate-client and walrus-client
+  - **Re-verified:** F1–F8. F3 and F7 are superseded by the access-gate-client and walrus-storage-client
     migrations. F1's ceiling is aligned to 0.05 SUI. F8 is strengthened (generation guard). OQ1–OQ6
     answered in place.
   - **Measured:** vitest 42/42; coverage 59.23 / 41.49 / 60.52; `vue-tsc`, stylelint, eslint (a11y)
@@ -1310,13 +1310,13 @@ production tree is clean.
   - **Resolved in code since the second pass:** F15 (0.1.27, `971ed8a`), plus the new F19 (lint boundary,
     `112d0d3`, 0.1.27) and F20 (same-registration upload retry, `7c446a2`, 0.1.28). F17: the peer floor
     (0.1.27) and the Sui CLI pin (`614a25f`).
-  - **Facts corrected:** dependencies (access-gate-client 0.0.8, walrus-client 0.0.27, ui 0.1.31,
+  - **Facts corrected:** dependencies (access-gate-client 0.0.8, walrus-storage-client 0.0.27, ui 0.1.31,
     design-tokens 0.1.9, eslint-config 0.0.2); the `access_gate` package `0xd7ddaa94…88c9` and
     `PlatformConfig` `0x3f81489d…e7b5` (republished 2026-10-09); the live relay gate `0x316f1bf9…faddc`
     (the library does not hard-code the gate; it is the app's `VITE_ACCESS_GATE_ID_{NET}`); proofs are
     `nft-gate:access:v2` and built outside this library; register is never resumed. F13: README and
     AGENTS.md are current (the second-pass claim was wrong); `SECURITY.md`, the `package.json`
-    description (names `nft-gate-client`, which is not a dependency) and the approvals copy are stale.
+    description (names `access-gate-gateway-client`, which is not a dependency) and the approvals copy are stale.
     Sections A to D, the baselines, the open questions and the risks were brought up to date.
   - **New:** F19, F20 (resolved); F21, F22, F23 (deferred, Info).
   - **Measured:** vitest 44/44 (re-run); `vue-tsc`, lint and the audit gate clean; `npm ls` clean; pack 17
@@ -1325,8 +1325,8 @@ production tree is clean.
     DEFERRED to a named Section D pre-mainnet gate.
   - **Not run:** the localnet integration suite (no localnet here).
 - **2026-10-10** — fix wave, on top of `05f1963` (after `e57b06e`, tag `v0.1.30`); the code is 0.1.31, commit `24d7c43` (the orchestrator fills in the hash, tags and publishes).
-  - **Dependencies bumped first:** `@meddleware/walrus-client` ^0.0.28, `@meddleware/access-gate-client` ^0.0.9,
-    `@meddleware/design-tokens` ^0.1.10; the suite stayed green (44/44) before any change. Neither new walrus-client
+  - **Dependencies bumped first:** `@meddleware/walrus-storage-client` ^0.0.28, `@meddleware/access-gate-client` ^0.0.9,
+    `@meddleware/design-tokens` ^0.1.10; the suite stayed green (44/44) before any change. Neither new walrus-storage-client
     behaviour (declarations, `OwnedBlob.deletable`, conflict helpers) nor access-gate-client's create-gate
     guard touches this library.
   - **Resolved in code:** F9, F10 (OQ7), F11 (OQ8), F12, F13, F14, F16, F21, F22, F23; F17 except the integration
@@ -1339,29 +1339,29 @@ production tree is clean.
     `PlatformConfig` through access-gate-client because `useAccessGate` refuses a localnet package.
   - **Left open:** the unpinned integration refs (F17, a maintainer choice of commit); OQ9; the `access_gate`
     mainnet deployment (mainnet-blocked); the external review (maintainer item).
-  - **Consumers must follow (breaking, pre-v0.2 patch):** walrus-ui and token-deployer-ui pass `network` to
+  - **Consumers must follow (breaking, pre-v0.2 patch):** walrus-storage-ui and token-issuance-ui pass `network` to
     `useAccessGate`, drop `priceMist` from `relayGateConfig` and the prompt, pass `terms` / `termsError` /
     `purchaseError` to `AccessGateCta`, pass `sessionKey`, and show `purchaseError`.
-- **2026-10-18** — released (0.1.31), consumers bumped (walrus-ui and token-deployer-ui: `^0.1.31`, lockfiles resolve
-  0.1.31). `npm view` shows `@meddleware/walrus-relay` 0.1.31 as `latest`, published 2026-10-18T09:00Z, with SLSA v1
+- **2026-10-18** — released (0.1.31), consumers bumped (walrus-storage-ui and token-issuance-ui: `^0.1.31`, lockfiles resolve
+  0.1.31). `npm view` shows `@meddleware/walrus-storage-kit` 0.1.31 as `latest`, published 2026-10-18T09:00Z, with SLSA v1
   provenance (`dist.attestations`); tag `v0.1.31` = `2cf8b18` (code `24d7c43` + `4aa217d`). The "orchestrator fills in the hash, tags and
-  publishes" and "consumers must follow" items of the 2026-10-10 entry are done. Its remaining dependency ranges: walrus-client
+  publishes" and "consumers must follow" items of the 2026-10-10 entry are done. Its remaining dependency ranges: walrus-storage-client
   `^0.0.28`, access-gate-client `^0.0.9`, design-tokens `^0.1.10`, ui `^0.1.31`; eslint-config is still `^0.0.2` (0.0.3 is out).
   Still open: the unpinned integration refs (F17), OQ9, the mainnet deployment and the external review. No Section D box waited
   only on the release.
 - **2026-10-19** — live paywall run 2026-10-19: PASS — pass bought on the relay gate, consumed, v2 proof accepted, upload through the Worker, replay refused 409, strict decoder, indexer events; harness `integrations/paywall/` (infrastructure workspace).
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 - 2026-10-19 — tip ceiling re-derived from the workspace cost model (`docs/economics/COST_MODEL.md`, D57):
-  `MAX_TIP_MIST` 50_000_000n → 5_000_000n, matching walrus-client 0.0.29. The edge-cap test now uses the operator's
+  `MAX_TIP_MIST` 50_000_000n → 5_000_000n, matching walrus-storage-client 0.0.29. The edge-cap test now uses the operator's
   new schedule (`100_000 + 1/KiB`) and pins the ceiling at 6–10× its worst-case tip. Version 0.1.32, commit pending;
   F1 text and the tip-ceiling lines updated. Measured with Node 26.12.0: type-check, lint (css, js, html), 161/161
   unit tests and the audit gate pass. No disposition changes.
 
 - 2026-10-22 (audit close-out) — release status and stale open-question text; no code change.
-  - Releases: 0.1.32 (`v0.1.32`, the tip ceiling, already described under F1) and 0.1.33 (`v0.1.33` = `d8a1412`; dependency bumps only: walrus-client `^0.0.30`, access-gate-client `^0.0.10`); npm `latest` 0.1.33 (read with `npm view`). The Deployment status gains the 0.1.33 line; the 0.1.32 "commit pending" is the tag.
+  - Releases: 0.1.32 (`v0.1.32`, the tip ceiling, already described under F1) and 0.1.33 (`v0.1.33` = `d8a1412`; dependency bumps only: walrus-storage-client `^0.0.30`, access-gate-client `^0.0.10`); npm `latest` 0.1.33 (read with `npm view`). The Deployment status gains the 0.1.33 line; the 0.1.32 "commit pending" is the tag.
   - OQ3 now records its answer (decided 2026-10-10: `useAccessGate` enforces the published deployment through `assertPinnedGate`, 0.1.31); OQ5 now records that `integration.yml` uses `npm ci` (`.github/workflows/integration.yml:68`, 0.1.31). Dispositions and counts unchanged.
   - Not re-run: the unit suite (the 0.1.33 commit's own CI); the live paywall path.
-- 2026-10-22 (fix wave, CI only) — **F17 RESOLVED:** the last open item, the integration workflow's unpinned sibling checkouts, is closed. `integration.yml` pins `walrus-client` to `75cd12a` and `access-gate-sui` to the `v0.0.7` commit (`bf23517`), with a comment on how to bump (see F17). Proof: the workflow dispatched on `main` passed (run 39784066851); actionlint clean. No package change, no version bump. Dispositions: F17 MITIGATED to RESOLVED; Section D unchanged (the tarball/CI box already cited F17 and now names the pins); open: OQ9 is decided (2026-10-18), the `access_gate` mainnet deployment and the external review are maintainer items.
+- 2026-10-22 (fix wave, CI only) — **F17 RESOLVED:** the last open item, the integration workflow's unpinned sibling checkouts, is closed. `integration.yml` pins `walrus-storage-client` to `75cd12a` and `access-gate-sui` to the `v0.0.7` commit (`bf23517`), with a comment on how to bump (see F17). Proof: the workflow dispatched on `main` passed (run 39784066851); actionlint clean. No package change, no version bump. Dispositions: F17 MITIGATED to RESOLVED; Section D unchanged (the tarball/CI box already cited F17 and now names the pins); open: OQ9 is decided (2026-10-18), the `access_gate` mainnet deployment and the external review are maintainer items.
 
 ## Pre-save consistency checklist (this pass)
 
@@ -1374,3 +1374,4 @@ production tree is clean.
 - [x] C.1: test count re-run 2026-10-10 (161/161); coverage percentages are from 2026-10-03 and stated as such.
 - [x] Re-verification log entry added.
 - [x] 2026-10-22 (close-out): Deployment status, OQ3 and OQ5 text and the log updated; no disposition changes.
+- 2026-10-24 — repository renamed from `walrus-relay` to `walrus-storage-kit` (workspace naming convention, `docs/architecture/ADR-0003-naming.md`): package, image, host and path names updated throughout. No finding, disposition or evidence changed.

@@ -12,7 +12,7 @@ import {
   attachUploadRetry,
   type BlobUploadResult,
   type ExistingCopy,
-} from '@meddleware/walrus-client/flow'
+} from '@meddleware/walrus-storage-client/flow'
 import WalrusUpload from '../src/components/WalrusUpload.vue'
 
 vi.mock('@meddleware/ui', async () => import('./helpers/ui-stubs.js'))

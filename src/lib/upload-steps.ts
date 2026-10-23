@@ -6,7 +6,7 @@
 // stepped indicator). `detail` is the human sentence for the active step ("Registering blob
 // (approve in wallet)…"); `step` positions it on the stepper.
 
-import type { UploadProgress, UploadStepKey } from '@meddleware/walrus-client/flow'
+import type { UploadProgress, UploadStepKey } from '@meddleware/walrus-storage-client/flow'
 
 export interface UploadStepDef {
   key: UploadStepKey
