@@ -4,6 +4,12 @@ All notable changes to `@meddleware/walrus-relay` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/). Before 0.2.0, breaking changes ship as patch releases.
 
+## [0.1.35] - 2026-10-24
+
+### Changed
+
+- Access proofs use the `access-gate-gateway:access:v3` message (`@meddleware/walrus-storage-client` 0.0.32; workspace ADR-0004); `@meddleware/access-gate-client` 0.0.12 (new `access_gate` published-at; zero payment recipient refused); `@meddleware/ui` 0.1.34.
+
 ## [0.1.34] - 2026-10-24
 
 ### Changed

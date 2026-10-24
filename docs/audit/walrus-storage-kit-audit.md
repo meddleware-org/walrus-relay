@@ -1375,3 +1375,4 @@ production tree is clean.
 - [x] Re-verification log entry added.
 - [x] 2026-10-22 (close-out): Deployment status, OQ3 and OQ5 text and the log updated; no disposition changes.
 - 2026-10-24 — repository renamed from `walrus-relay` to `walrus-storage-kit` (workspace naming convention, `docs/architecture/ADR-0003-naming.md`): package, image, host and path names updated throughout. No finding, disposition or evidence changed.
+- 2026-10-24 — dependencies: walrus-storage-client 0.0.32 (access message v3, ADR-0004), access-gate-client 0.0.12 (access_gate v2 published-at), ui 0.1.34; 161 tests pass. No finding changed.
