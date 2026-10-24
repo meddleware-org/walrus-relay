@@ -3,7 +3,7 @@
 ## Package
 
 `@meddleware/walrus-storage-kit` — Vue 3 component library for the Walrus upload relay UI.  
-Previously published as `@meddleware/walrus-relay-ui`.
+Previously published as `@meddleware/walrus-relay-ui`, then `@meddleware/walrus-relay`.
 
 ## Key files
 

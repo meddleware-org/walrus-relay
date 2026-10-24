@@ -7,8 +7,8 @@ relay selection + tip estimation, NFT-gate access control (purchase CTA + owners
 and a blob-upload widget. Used by `@meddleware/walrus-storage-ui` (the standalone app) and by the
 token-issuance app for image upload.
 
-**Package name history:** Previously published as `@meddleware/walrus-relay-ui`; renamed to
-`@meddleware/walrus-storage-kit` v0.1.0 for consistency with the `walrus-relay` repo name.
+**Package name history:** published as `@meddleware/walrus-relay-ui`, then `@meddleware/walrus-relay` (v0.1.0), then renamed
+`@meddleware/walrus-storage-kit` in the workspace naming convention (2026-10-23, `docs/architecture/ADR-0003-naming.md`).
 
 ## Gate config pinning (do not change)
 
